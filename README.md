@@ -176,7 +176,7 @@ The web UI has optional password protection (set in `resonant.yaml` or Settings 
 
 ## License
 
-CC BY-NC 4.0 — free for personal use, commercial use requires a separate license. See [LICENSE](LICENSE).
+Apache 2.0 — see [LICENSE](LICENSE). Attribution required.
 
 ## Built by
 

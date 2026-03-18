@@ -13,5 +13,5 @@
     "start": "npm run start --workspace=packages/backend",
     "check": "npm run check --workspaces --if-present"
   },
-  "license": "CC-BY-NC-4.0"
+  "license": "Apache-2.0"
 }
