@@ -24,7 +24,7 @@ This applies to GitHub Issues, Discussions, PRs, and any other project spaces.
 
 ## Enforcement
 
-Violations can be reported to **hello@codependentai.co**. Reports will be reviewed and acted on. Responses may include warnings, temporary bans, or permanent bans depending on severity.
+Violations can be reported via DM on [X (@codependent_ai)](https://x.com/codependent_ai) or through the [Telegram channel](https://t.me/+xSE1P_qFPgU4NDhk). Reports will be reviewed and acted on. Responses may include warnings, temporary bans, or permanent bans depending on severity.
 
 ## Attribution
 

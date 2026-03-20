@@ -10,7 +10,7 @@
 
 **Do not open a public issue for security vulnerabilities.**
 
-Email **hello@codependentai.co** with:
+DM us on [X (@codependent_ai)](https://x.com/codependent_ai) or message the [Telegram channel](https://t.me/+xSE1P_qFPgU4NDhk) with:
 - Description of the vulnerability
 - Steps to reproduce
 - Impact assessment (what an attacker could do)
