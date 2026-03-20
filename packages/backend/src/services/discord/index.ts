@@ -130,11 +130,13 @@ export class DiscordService {
 
     // Defer non-owner Discord messages when owner is actively chatting on web UI
     // This prevents Discord conversations from interrupting the owner's flow
+    // Uses web-specific activity — Telegram activity should NOT trigger deferral
     if (!isOwner) {
-      const ownerActiveMinutes = this.registry.minutesSinceLastUserActivity();
+      const ownerActiveMinutes = this.registry.minutesSinceLastUserWebActivity();
       if (ownerActiveMinutes < getDiscordConfig().ownerActiveThresholdMin) {
         this.deferredBatches.push({ batch, queuedAt: Date.now() });
         this.stats.deferred++;
+        lastMessage.react('\u23F3').catch(() => {}); // hourglass — message seen but delayed
         console.log(`[Discord] Deferred message from ${firstMessage.author.username} (owner active ${ownerActiveMinutes.toFixed(1)}m ago, ${this.deferredBatches.length} in queue)`);
         return;
       }
@@ -162,6 +164,8 @@ export class DiscordService {
       channelId,
     });
 
+    let typingInterval: ReturnType<typeof setInterval> | null = null;
+
     try {
       // Run preflight checks
       const result = await preflight(batch, this.pairingService);
@@ -183,10 +187,15 @@ export class DiscordService {
         this.registry.touchUserActivity();
       }
 
-      // Show typing indicator
+      // Show typing indicator (refresh every 8s — Discord typing expires after 10s)
       if ('sendTyping' in lastMessage.channel) {
         await lastMessage.channel.sendTyping();
       }
+      typingInterval = setInterval(() => {
+        if ('sendTyping' in lastMessage.channel) {
+          (lastMessage.channel as TextChannel).sendTyping().catch(() => {});
+        }
+      }, 8000);
 
       console.log(`[Discord] Processing from ${firstMessage.author.username} in ${channelId}`);
 
@@ -271,12 +280,23 @@ export class DiscordService {
       updateThreadActivity(threadId, now, true);
       this.registry.broadcast({ type: 'message', message: incomingMsg });
 
-      // Build platform context (rules + channel history)
+      // Build platform context (platform info + rules + channel history)
+      const platformHeader = batch.guildId
+        ? `=== PLATFORM: DISCORD ===\nResponding in #${(this.client.channels.cache.get(channelId) as TextChannel)?.name || channelId} on ${this.client.guilds.cache.get(batch.guildId)?.name || batch.guildId}.`
+        : `=== PLATFORM: DISCORD ===\nResponding in DM with ${firstMessage.author.username}.`;
+      const platformGuidance = [
+        platformHeader,
+        'Discord formatting: **bold**, *italic*, `code`, ```codeblocks```, > quotes, ||spoilers||.',
+        'Max message length: 2000 chars (responses auto-split at 1900).',
+        'Replying to the last message in this batch.',
+        'Keep responses appropriate to the platform — not as terse as Telegram, but don\'t write essays.',
+      ].join('\n');
+
       const rulesContext = buildRulesContext(userId, channelId, batch.guildId);
       const historyContext = batch.channelHistory
         ? `\n\n=== RECENT CHANNEL HISTORY (last 25 messages) ===\n${batch.channelHistory}`
         : '';
-      const platformContext = `${rulesContext}${historyContext}`;
+      const platformContext = `${platformGuidance}\n\n${rulesContext}${historyContext}`;
 
       this.stats.messagesProcessed++;
 
@@ -314,6 +334,7 @@ export class DiscordService {
       console.error('[Discord] Handler error:', error);
       this.stats.errors++;
     } finally {
+      if (typingInterval) clearInterval(typingInterval);
       this.processing.delete(key);
     }
   }
@@ -322,8 +343,8 @@ export class DiscordService {
     if (this.deferredBatches.length === 0) return;
 
     const config = getDiscordConfig();
-    const ownerActiveMinutes = this.registry.minutesSinceLastUserActivity();
-    if (ownerActiveMinutes < config.ownerActiveThresholdMin) return; // Owner still active — keep holding
+    const ownerActiveMinutes = this.registry.minutesSinceLastUserWebActivity();
+    if (ownerActiveMinutes < config.ownerActiveThresholdMin) return; // Owner still active on web — keep holding
 
     // Prune expired batches
     const now = Date.now();
@@ -341,8 +362,8 @@ export class DiscordService {
 
     // Process one at a time to avoid flooding
     while (this.deferredBatches.length > 0) {
-      // Re-check owner's activity before each batch — stop draining if they come back
-      if (this.registry.minutesSinceLastUserActivity() < config.ownerActiveThresholdMin) {
+      // Re-check owner's web activity before each batch — stop draining if they come back to web
+      if (this.registry.minutesSinceLastUserWebActivity() < config.ownerActiveThresholdMin) {
         console.log(`[Discord] Owner returned — pausing drain (${this.deferredBatches.length} remaining)`);
         break;
       }

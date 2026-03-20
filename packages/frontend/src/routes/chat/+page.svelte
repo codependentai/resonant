@@ -764,6 +764,7 @@
   .messages-container {
     flex: 1;
     overflow-y: auto;
+    overflow-x: hidden;
     background: var(--bg-primary);
   }
 
@@ -975,6 +976,24 @@
     .messages-list {
       padding: 0.75rem;
       max-width: 100%;
+    }
+
+    .chat-header {
+      gap: 0.5rem;
+    }
+
+    .header-info {
+      gap: 0.375rem;
+      min-width: 0;
+    }
+
+    .header-title {
+      font-size: 1.0625rem;
+    }
+
+    .header-actions {
+      gap: 0.25rem;
+      flex-shrink: 0;
     }
   }
 </style>

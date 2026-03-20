@@ -322,8 +322,31 @@
       inset: 0;
       width: 100%;
       max-width: 100%;
+      min-width: unset;
       z-index: 200;
       animation: canvasSlideIn 0.25s ease-out;
+      padding-top: env(safe-area-inset-top, 0px);
+    }
+
+    .canvas-header {
+      padding: 0.5rem 0.75rem;
+    }
+
+    .canvas-title-input {
+      font-size: 0.9375rem;
+    }
+
+    .canvas-editor {
+      padding: 0.75rem;
+      font-size: 1rem;
+    }
+
+    .canvas-preview {
+      padding: 0.75rem;
+    }
+
+    .canvas-btn {
+      padding: 0.5rem;
     }
   }
 

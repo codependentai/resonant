@@ -1183,5 +1183,49 @@
     .message.user {
       max-width: 90%;
     }
+
+    .message {
+      overflow: hidden;
+    }
+
+    .message-content {
+      overflow: hidden;
+    }
+
+    .tool-output {
+      max-width: calc(100vw - 4rem);
+    }
+
+    .markdown-content :global(pre) {
+      max-width: calc(100vw - 4rem);
+    }
+
+    .tools-panel {
+      max-width: calc(100vw - 4rem);
+      overflow: hidden;
+    }
+
+    .interleaved-content {
+      max-width: calc(100vw - 4rem);
+      overflow: hidden;
+    }
+
+    .lightbox {
+      padding: 0;
+    }
+
+    .lightbox-close {
+      top: max(env(safe-area-inset-top, 0.5rem), 0.75rem);
+      right: 0.75rem;
+      padding: 0.75rem;
+      background: rgba(0, 0, 0, 0.6);
+      z-index: 1002;
+    }
+
+    .lightbox img {
+      max-width: 100vw;
+      max-height: 100vh;
+      border-radius: 0;
+    }
   }
 </style>

@@ -111,6 +111,9 @@ export interface SystemStatus {
   agentProcessing: boolean;
   orchestratorTasks: OrchestratorTaskStatus[];
   mcpServers: McpServerInfo[];
+  discord?: { connected: boolean; guilds: number; messagesProcessed: number; errors: number; deferredPending: number; username: string | null };
+  telegram?: { connected: boolean; messagesProcessed: number; errors: number; restarts: number };
+  queryQueue?: { processing: boolean; depth: number };
 }
 
 export interface Canvas {

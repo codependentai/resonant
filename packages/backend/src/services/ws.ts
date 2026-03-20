@@ -36,6 +36,8 @@ import { AgentService } from './agent.js';
 import { Orchestrator } from './orchestrator.js';
 import { getFile } from './files.js';
 import type { VoiceService } from './voice.js';
+import type { DiscordService } from './discord/index.js';
+import type { TelegramService } from './telegram/index.js';
 import { getResonantConfig } from '../config.js';
 
 function getAllowedOrigins(): string[] {
@@ -87,13 +89,17 @@ function parseDeviceType(ua: string): 'mobile' | 'desktop' | 'unknown' {
 class ConnectionRegistry {
   private connections = new Map<string, Set<ExtendedWebSocket>>();
   private _lastUserActivity: Date = new Date();
+  private _lastUserWebActivity: Date = new Date(0);
 
   add(userId: string, ws: ExtendedWebSocket): void {
     if (!this.connections.has(userId)) {
       this.connections.set(userId, new Set());
     }
     this.connections.get(userId)!.add(ws);
-    if (userId === 'user') this._lastUserActivity = new Date();
+    if (userId === 'user') {
+      this._lastUserActivity = new Date();
+      this._lastUserWebActivity = new Date();
+    }
   }
 
   remove(userId: string, ws: ExtendedWebSocket): void {
@@ -108,6 +114,14 @@ class ConnectionRegistry {
 
   touchUserActivity(): void {
     this._lastUserActivity = new Date();
+  }
+
+  touchUserWebActivity(): void {
+    this._lastUserWebActivity = new Date();
+  }
+
+  minutesSinceLastUserWebActivity(): number {
+    return (Date.now() - this._lastUserWebActivity.getTime()) / 60000;
   }
 
   broadcast(message: ServerMessage): void {
@@ -206,6 +220,17 @@ let voiceServiceInstance: VoiceService | null = null;
 
 export function setVoiceService(vs: VoiceService): void {
   voiceServiceInstance = vs;
+}
+
+export interface GatewayServices {
+  discord?: DiscordService | null;
+  telegram?: TelegramService | null;
+}
+
+let gatewayServices: GatewayServices = {};
+
+export function setGatewayServices(services: GatewayServices): void {
+  gatewayServices = services;
 }
 
 export function createWebSocketServer(server: HTTPServer, agentService?: AgentService, orchestrator?: Orchestrator): WebSocketServer {
@@ -351,6 +376,7 @@ export function createWebSocketServer(server: HTTPServer, agentService?: AgentSe
             break;
           case 'message':
             registry.touchUserActivity();
+            registry.touchUserWebActivity();
             await handleMessageSend(clientMsg, extWs, agent);
             break;
           case 'sync':
@@ -358,14 +384,17 @@ export function createWebSocketServer(server: HTTPServer, agentService?: AgentSe
             break;
           case 'read':
             registry.touchUserActivity();
+            registry.touchUserWebActivity();
             handleRead(clientMsg);
             break;
           case 'switch_thread':
             registry.touchUserActivity();
+            registry.touchUserWebActivity();
             handleSwitchThread(clientMsg, extWs);
             break;
           case 'create_thread':
             registry.touchUserActivity();
+            registry.touchUserWebActivity();
             handleCreateThread(clientMsg);
             break;
           case 'request_status':
@@ -373,6 +402,7 @@ export function createWebSocketServer(server: HTTPServer, agentService?: AgentSe
             break;
           case 'voice_start':
             registry.touchUserActivity();
+            registry.touchUserWebActivity();
             handleVoiceStart(extWs, clientMsg);
             break;
           case 'voice_audio':
@@ -380,6 +410,7 @@ export function createWebSocketServer(server: HTTPServer, agentService?: AgentSe
             break;
           case 'voice_stop':
             registry.touchUserActivity();
+            registry.touchUserWebActivity();
             handleVoiceStop(extWs);
             break;
           case 'voice_mode':
@@ -390,18 +421,22 @@ export function createWebSocketServer(server: HTTPServer, agentService?: AgentSe
             break;
           case 'canvas_create':
             registry.touchUserActivity();
+            registry.touchUserWebActivity();
             handleCanvasCreate(clientMsg, extWs);
             break;
           case 'canvas_update':
             registry.touchUserActivity();
+            registry.touchUserWebActivity();
             handleCanvasUpdate(clientMsg, extWs);
             break;
           case 'canvas_update_title':
             registry.touchUserActivity();
+            registry.touchUserWebActivity();
             handleCanvasUpdateTitle(clientMsg, extWs);
             break;
           case 'canvas_delete':
             registry.touchUserActivity();
+            registry.touchUserWebActivity();
             handleCanvasDelete(clientMsg, extWs);
             break;
           case 'canvas_list':
@@ -409,18 +444,22 @@ export function createWebSocketServer(server: HTTPServer, agentService?: AgentSe
             break;
           case 'add_reaction':
             registry.touchUserActivity();
+            registry.touchUserWebActivity();
             handleAddReaction(clientMsg, extWs);
             break;
           case 'remove_reaction':
             registry.touchUserActivity();
+            registry.touchUserWebActivity();
             handleRemoveReaction(clientMsg, extWs);
             break;
           case 'pin_thread':
             registry.touchUserActivity();
+            registry.touchUserWebActivity();
             handlePinThread(clientMsg);
             break;
           case 'unpin_thread':
             registry.touchUserActivity();
+            registry.touchUserWebActivity();
             handleUnpinThread(clientMsg);
             break;
           case 'visibility':
@@ -756,7 +795,30 @@ async function handleRequestStatus(
     agentProcessing: agent.isProcessing(),
     orchestratorTasks,
     mcpServers: agent.getMcpStatus(),
+    queryQueue: { processing: agent.isProcessing(), depth: agent.getQueueDepth() },
   };
+
+  // Append gateway stats if available
+  if (gatewayServices.discord) {
+    const ds = gatewayServices.discord.getStats();
+    status.discord = {
+      connected: ds.connected,
+      guilds: ds.guilds,
+      messagesProcessed: ds.messagesProcessed,
+      errors: ds.errors,
+      deferredPending: ds.deferredPending,
+      username: ds.username,
+    };
+  }
+  if (gatewayServices.telegram) {
+    const ts = gatewayServices.telegram.getStats();
+    status.telegram = {
+      connected: ts.connected,
+      messagesProcessed: ts.messagesProcessed,
+      errors: ts.errors,
+      restarts: ts.restarts,
+    };
+  }
 
   const msg: import('@resonant/shared').ServerMessage = { type: 'system_status', status };
   ws.send(JSON.stringify(msg));

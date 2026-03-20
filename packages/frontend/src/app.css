@@ -108,6 +108,7 @@ html {
   font-size: 15px;
   -webkit-text-size-adjust: 100%;
   overflow-x: hidden;
+  overflow-y: hidden;
 }
 
 body {
@@ -119,6 +120,8 @@ body {
   letter-spacing: 0;
   min-height: 100dvh;
   overflow: hidden;
+  touch-action: manipulation;
+  overscroll-behavior: none;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }

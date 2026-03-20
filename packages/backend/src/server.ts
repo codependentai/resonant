@@ -8,7 +8,7 @@ import { fileURLToPath } from 'url';
 import { existsSync, mkdirSync } from 'fs';
 import { loadConfig } from './config.js';
 import { initDb, deleteExpiredSessions } from './services/db.js';
-import { createWebSocketServer, setVoiceService, registry } from './services/ws.js';
+import { createWebSocketServer, setVoiceService, setGatewayServices, registry } from './services/ws.js';
 import { Orchestrator } from './services/orchestrator.js';
 import { AgentService } from './services/agent.js';
 import { VoiceService } from './services/voice.js';
@@ -174,6 +174,9 @@ app.locals.voiceService = voiceService;
 app.locals.pushService = pushService;
 app.locals.discordService = discordService;
 app.locals.telegramService = telegramService;
+
+// Wire gateway services for status reporting
+setGatewayServices({ discord: discordService, telegram: telegramService });
 
 // Attach WebSocket server
 console.log('Initializing WebSocket server...');

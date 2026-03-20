@@ -253,6 +253,10 @@ export class AgentService {
     return queryQueue.isProcessing;
   }
 
+  getQueueDepth(): number {
+    return queryQueue.depth;
+  }
+
   getMcpStatus(): McpServerInfo[] {
     return cachedMcpStatus;
   }

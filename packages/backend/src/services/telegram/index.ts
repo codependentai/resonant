@@ -8,6 +8,8 @@ import type { Context } from 'telegraf';
 import type { Update } from 'telegraf/types';
 import crypto from 'crypto';
 import { getTelegramConfig } from './config.js';
+import { TelegramDebouncer } from './debouncer.js';
+import type { TelegramBatch, TelegramQueuedMessage } from './debouncer.js';
 import { splitResponse, getTelegramThreadId } from './utils.js';
 import type { AgentService } from '../agent.js';
 import type { VoiceService } from '../voice.js';
@@ -23,8 +25,11 @@ export class TelegramService {
   private agentService: AgentService;
   private voiceService: VoiceService;
   private registry: ConnectionRegistry;
-  private processing = false;
+  private debouncer: TelegramDebouncer;
   private started = false;
+  private lastPollingActivity: number = 0;
+  private healthCheckInterval: ReturnType<typeof setInterval> | null = null;
+  private restartAttempts = 0;
 
   // Track recent Telegram message IDs for reactions
   private recentMessageIds: { messageId: number; role: 'user' | 'companion'; timestamp: number }[] = [];
@@ -46,14 +51,18 @@ export class TelegramService {
     if (!token) throw new Error('TELEGRAM_BOT_TOKEN not set');
 
     this.bot = new Telegraf(token);
+    this.debouncer = new TelegramDebouncer();
+    this.debouncer.onBatch(this.handleBatch.bind(this));
     this.setupHandlers();
   }
 
   private setupHandlers(): void {
     const config = getResonantConfig();
 
-    // Debug: log all incoming message types
+    // Track polling activity + debug logging
     this.bot.use(async (ctx, next) => {
+      this.lastPollingActivity = Date.now();
+      this.restartAttempts = 0; // Reset on successful message receipt
       if (ctx.message) {
         const msg = ctx.message as any;
         const types = ['text', 'voice', 'audio', 'video_note', 'video', 'document', 'photo', 'sticker']
@@ -116,7 +125,8 @@ export class TelegramService {
   }
 
   /**
-   * Handle voice messages: download -> transcribe via Groq Whisper -> route transcript.
+   * Handle voice messages: download -> transcribe via Groq Whisper -> queue transcript.
+   * Saves the audio file and includes transcript context for the agent.
    */
   private async handleVoiceMessage(ctx: Context<Update.MessageUpdate>): Promise<void> {
     const chatId = ctx.chat?.id.toString();
@@ -137,15 +147,7 @@ export class TelegramService {
 
     this.stats.messagesReceived++;
 
-    if (this.processing) {
-      console.log('[Telegram] Already processing, skipping voice message');
-      return;
-    }
-    this.processing = true;
-
     try {
-      await ctx.sendChatAction('typing');
-
       // Download voice file from Telegram
       const voice = (ctx.message as any).voice;
       if (!voice?.file_id) {
@@ -178,27 +180,30 @@ export class TelegramService {
         return;
       }
 
-      // Route the transcript as a message, with voice context
       const config = getResonantConfig();
       const voiceContext = `[Voice message from ${config.identity.user_name}, ${duration}s] "${transcript}"`;
-      await this.routeToAgent(ctx, chatId, voiceContext, {
-        telegramChatId: chatId,
-        telegramMessageId: ctx.message!.message_id,
-        voiceFileId: fileMeta.fileId,
-        voiceDuration: duration,
-        voiceTranscript: transcript,
-      });
+      this.debouncer.add({
+        content: voiceContext,
+        ctx,
+        metadata: {
+          telegramChatId: chatId,
+          telegramMessageId: ctx.message!.message_id,
+          voiceFileId: fileMeta.fileId,
+          voiceDuration: duration,
+          voiceTranscript: transcript,
+        },
+        type: 'voice',
+      }, chatId);
 
     } catch (error) {
       console.error('[Telegram] Voice handler error:', error);
       this.stats.errors++;
-    } finally {
-      this.processing = false;
     }
   }
 
   /**
-   * Handle photo messages: download highest-res version, save to disk, pass path to agent.
+   * Handle photo messages: download highest-res version, save to disk, queue for agent.
+   * Agent can then use Read tool to actually see the image.
    */
   private async handlePhotoMessage(ctx: Context<Update.MessageUpdate>): Promise<void> {
     const chatId = ctx.chat?.id.toString();
@@ -213,15 +218,7 @@ export class TelegramService {
 
     this.stats.messagesReceived++;
 
-    if (this.processing) {
-      console.log('[Telegram] Already processing, skipping photo');
-      return;
-    }
-    this.processing = true;
-
     try {
-      await ctx.sendChatAction('typing');
-
       // Get highest resolution photo (last in array)
       const photos = (ctx.message as any).photo;
       if (!photos?.length) {
@@ -250,19 +247,22 @@ export class TelegramService {
         ? `[Photo from ${config.identity.user_name}] ${caption}\nImage saved at: data/files/${fileMeta.fileId}.jpg — use Read tool to see it.`
         : `[Photo from ${config.identity.user_name}]\nImage saved at: data/files/${fileMeta.fileId}.jpg — use Read tool to see it.`;
 
-      await this.routeToAgent(ctx, chatId, content, {
-        telegramChatId: chatId,
-        telegramMessageId: ctx.message!.message_id,
-        photoFileId: fileMeta.fileId,
-        photoWidth: bestPhoto.width,
-        photoHeight: bestPhoto.height,
-      });
+      this.debouncer.add({
+        content,
+        ctx,
+        metadata: {
+          telegramChatId: chatId,
+          telegramMessageId: ctx.message!.message_id,
+          photoFileId: fileMeta.fileId,
+          photoWidth: bestPhoto.width,
+          photoHeight: bestPhoto.height,
+        },
+        type: 'photo',
+      }, chatId);
 
     } catch (error) {
       console.error('[Telegram] Photo handler error:', error);
       this.stats.errors++;
-    } finally {
-      this.processing = false;
     }
   }
 
@@ -284,29 +284,53 @@ export class TelegramService {
 
     this.stats.messagesReceived++;
 
-    // Prevent overlapping processing
-    if (this.processing) {
-      console.log('[Telegram] Already processing, skipping');
-      return;
-    }
-    this.processing = true;
+    const content = overrideContent || ('text' in ctx.message! ? ctx.message.text : '');
+    if (!content) return;
 
-    try {
-      const content = overrideContent || ('text' in ctx.message! ? ctx.message.text : '');
-      if (!content) return;
+    // Determine type for debouncer (audio/document handlers pass overrideContent)
+    const msgType: TelegramQueuedMessage['type'] = overrideContent
+      ? ((ctx.message as any).audio ? 'audio' : 'document')
+      : 'text';
 
-      await ctx.sendChatAction('typing');
-
-      await this.routeToAgent(ctx, chatId, content, {
+    this.debouncer.add({
+      content,
+      ctx,
+      metadata: {
         telegramChatId: chatId,
         telegramMessageId: ctx.message!.message_id,
-      });
+      },
+      type: msgType,
+    }, chatId);
+  }
 
-    } catch (error) {
-      console.error('[Telegram] Handler error:', error);
-      this.stats.errors++;
-    } finally {
-      this.processing = false;
+  /**
+   * Handle a debounced batch of messages.
+   * Text messages are combined into one prompt. Voice/photo/document flush immediately
+   * and are processed individually.
+   */
+  private async handleBatch(batch: TelegramBatch): Promise<void> {
+    const { messages, chatId } = batch;
+    if (messages.length === 0) return;
+
+    // Separate text messages from media messages
+    const textMessages = messages.filter(m => m.type === 'text');
+    const mediaMessages = messages.filter(m => m.type !== 'text');
+
+    // Process combined text messages as one prompt
+    if (textMessages.length > 0) {
+      const combinedContent = textMessages.map(m => m.content).join('\n');
+      const lastCtx = textMessages[textMessages.length - 1].ctx;
+      const lastMetadata = textMessages[textMessages.length - 1].metadata;
+
+      console.log(`[Telegram] Batch: ${textMessages.length} text message(s) combined`);
+      await lastCtx.sendChatAction('typing').catch(() => {});
+      await this.routeToAgent(lastCtx, chatId, combinedContent, lastMetadata);
+    }
+
+    // Process media messages individually (they already flushed immediately)
+    for (const msg of mediaMessages) {
+      await msg.ctx.sendChatAction('typing').catch(() => {});
+      await this.routeToAgent(msg.ctx, chatId, msg.content, msg.metadata);
     }
   }
 
@@ -644,21 +668,85 @@ export class TelegramService {
       console.log(`[Telegram] Bot verified: @${me.username}`);
 
       // launch() starts long-polling and never resolves — don't await it
+      this.lastPollingActivity = Date.now();
       this.bot.launch({ allowedUpdates: ['message', 'callback_query'] }).catch(err => {
         console.error('[Telegram] Polling error:', err);
         this.stats.errors++;
       });
 
       this.started = true;
+
+      // Health check every 5 minutes
+      this.healthCheckInterval = setInterval(() => {
+        this.healthCheck().catch(err =>
+          console.error('[Telegram] Health check error:', err)
+        );
+      }, 5 * 60 * 1000);
+
       console.log('[Telegram] Gateway started (polling)');
     } catch (error) {
       console.error('[Telegram] Failed to start:', error);
     }
   }
 
+  private async healthCheck(): Promise<void> {
+    try {
+      await this.bot.telegram.getMe();
+    } catch (error) {
+      console.error('[Telegram] Health check failed — polling may be dead:', error);
+      await this.restart();
+      return;
+    }
+
+    // Check for stale polling during waking hours (8am-midnight London)
+    const londonHour = new Date().toLocaleString('en-GB', { timeZone: 'Europe/London', hour: 'numeric', hour12: false });
+    const hour = parseInt(londonHour, 10);
+    const isWakingHours = hour >= 8 && hour < 24;
+
+    if (isWakingHours && this.lastPollingActivity > 0) {
+      const minutesStale = (Date.now() - this.lastPollingActivity) / 60000;
+      if (minutesStale > 15) {
+        console.warn(`[Telegram] Polling stale (${minutesStale.toFixed(0)}m since last activity) — restarting`);
+        await this.restart();
+        return;
+      }
+    }
+
+    console.log('[Telegram] Health check OK');
+  }
+
+  private async restart(): Promise<void> {
+    this.restartAttempts++;
+    const backoffMs = Math.min(2000 * Math.pow(2, this.restartAttempts - 1), 60000);
+    console.log(`[Telegram] Restart attempt ${this.restartAttempts} (backoff ${backoffMs}ms)`);
+
+    this.stats.errors++;
+
+    try {
+      this.bot.stop('restart');
+    } catch {
+      // May already be stopped
+    }
+
+    await new Promise(r => setTimeout(r, backoffMs));
+
+    this.lastPollingActivity = Date.now();
+    this.bot.launch({ allowedUpdates: ['message', 'callback_query'] }).catch(err => {
+      console.error('[Telegram] Restart polling error:', err);
+      this.stats.errors++;
+    });
+
+    console.log('[Telegram] Restarted polling');
+  }
+
   async stop(): Promise<void> {
     if (!this.started) return;
     console.log('[Telegram] Shutting down gateway...');
+    if (this.healthCheckInterval) {
+      clearInterval(this.healthCheckInterval);
+      this.healthCheckInterval = null;
+    }
+    this.debouncer.destroy();
     this.bot.stop('SIGTERM');
     this.started = false;
   }
@@ -671,6 +759,7 @@ export class TelegramService {
     return {
       ...this.stats,
       connected: this.isConnected(),
+      restarts: this.restartAttempts,
     };
   }
 }
