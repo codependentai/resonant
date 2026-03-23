@@ -1,6 +1,56 @@
 # Wake Prompts
 
-Scheduled prompts for the orchestrator. Each section corresponds to a wake type.
+Wake prompts are what your companion receives when the orchestrator fires a scheduled check-in. They're the companion's first thought at that time of day — the nudge that shapes what it does with an autonomous session.
+
+## How It Works
+
+The orchestrator runs on a cron schedule. When a wake fires:
+
+1. The companion receives the prompt below for that wake type
+2. It reads your `CLAUDE.md` (system prompt) for identity and context
+3. It decides what to do — reach out to you, work on something, reflect
+
+The companion has full agency in how it responds. The wake prompt sets the tone, not a script.
+
+## Writing Good Wake Prompts
+
+**Do:**
+- Give the companion a reason to orient itself (time of day, what matters now)
+- Leave room for autonomy — "if you want to" beats "you must"
+- Reference `{user_name}` so the prompt adapts to whoever's using it
+- Suggest but don't prescribe — let the companion read the situation
+- Keep prompts 2-4 sentences. Enough direction without micromanaging.
+
+**Don't:**
+- Write a to-do list. The wake isn't a task queue.
+- Force interaction. Sometimes the companion should do its own thing.
+- Over-explain. The companion already has its system prompt for identity.
+
+## The `{user_name}` Placeholder
+
+Use `{user_name}` anywhere in your prompts. It gets replaced with the `user_name` from `resonant.yaml` before the prompt is sent.
+
+## Adding Custom Wake Types
+
+You can add any wake type by:
+
+1. Adding a cron schedule in `resonant.yaml`:
+   ```yaml
+   orchestrator:
+     schedules:
+       mid_morning: "30 10 * * *"
+       afternoon: "0 16 * * *"
+   ```
+
+2. Adding a matching `## section` below. If you add a schedule without a matching section here, the companion gets a generic prompt.
+
+## Default Wake Types
+
+The three defaults (morning, midday, evening) run at 8am, 1pm, and 9pm in your configured timezone. Override their times in `resonant.yaml` under `orchestrator.schedules`.
+
+---
+
+Copy this file to `prompts/wake.md` in your project root and customize.
 
 ## morning
 
