@@ -220,13 +220,18 @@ switch (cmd) {
   }
 
   case 'search': {
+    // sc search "query" --thread ID --limit N --role companion|user --after 2026-03-01 --before 2026-03-15
     const query = args[0];
-    if (!query) { console.log('Usage: sc search "query" [--thread ID] [--limit N]'); break; }
+    if (!query) { console.log('Usage: sc search "query" [--thread ID] [--limit N] [--role companion|user] [--after ISO] [--before ISO]'); break; }
     const body = { query };
-    const ti = args.indexOf('--thread');
-    if (ti !== -1 && args[ti + 1]) body.threadId = args[ti + 1];
-    const li = args.indexOf('--limit');
-    if (li !== -1 && args[li + 1]) body.limit = parseInt(args[li + 1], 10);
+    const flags = ['--thread', '--limit', '--role', '--after', '--before'];
+    for (const flag of flags) {
+      const fi = args.indexOf(flag);
+      if (fi !== -1 && args[fi + 1]) {
+        const key = flag.replace('--', '');
+        body[key] = key === 'limit' ? parseInt(args[fi + 1], 10) : args[fi + 1];
+      }
+    }
     await post('search-semantic', body, 30000);
     break;
   }

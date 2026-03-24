@@ -39,7 +39,6 @@ import {
   createTrigger,
   listTriggers,
   cancelTrigger,
-  getAllEmbeddings,
   getUnembeddedMessages,
   saveEmbedding,
   getEmbeddingCount,
@@ -54,7 +53,8 @@ import {
 import { loginRateLimiter } from '../middleware/security.js';
 import { authMiddleware } from '../middleware/auth.js';
 import { getRecentAuditEntries } from '../services/audit.js';
-import { embed, cosineSimilarity, bufferToVector, vectorToBuffer } from '../services/embeddings.js';
+import { embed, vectorToBuffer } from '../services/embeddings.js';
+import { searchVectors, getCacheStats, type SearchFilter } from '../services/vector-cache.js';
 import { saveFile, saveFileInternal, getContentTypeFromMime, getFile, deleteFile, listFiles } from '../services/files.js';
 import { registry } from '../services/ws.js';
 import { getResonantConfig } from '../config.js';
@@ -650,8 +650,9 @@ router.post('/internal/search-semantic', async (req, res) => {
   }
 
   try {
-    const { query, threadId, limit = 10 } = req.body as {
-      query?: string; threadId?: string; limit?: number;
+    const { query, threadId, role, after, before, limit = 10 } = req.body as {
+      query?: string; threadId?: string; role?: string;
+      after?: string; before?: string; limit?: number;
     };
     if (!query || typeof query !== 'string') {
       res.status(400).json({ error: 'query is required' });
@@ -659,30 +660,42 @@ router.post('/internal/search-semantic', async (req, res) => {
     }
 
     const queryVector = await embed(query);
-    const rows = getAllEmbeddings(threadId);
 
-    const scored = rows.map(row => ({
-      messageId: row.message_id,
-      threadId: row.thread_id,
-      threadName: row.thread_name,
-      role: row.role,
-      content: row.content,
-      createdAt: row.created_at,
-      similarity: cosineSimilarity(queryVector, bufferToVector(row.vector)),
-    }));
+    const filter: SearchFilter = {};
+    if (threadId) filter.threadId = threadId;
+    if (role) filter.role = role;
+    if (after) filter.after = after;
+    if (before) filter.before = before;
 
-    scored.sort((a, b) => b.similarity - a.similarity);
+    const topResults = searchVectors(queryVector, Math.min(limit, 50), filter);
     const contextSize = Math.min((req.body as Record<string, unknown>).context as number || 2, 10);
-    const topResults = scored.slice(0, Math.min(limit, 50));
+
+    const sessionStmt = getDb().prepare(`
+      SELECT sh.session_id, sh.started_at, sh.ended_at
+      FROM session_history sh
+      WHERE sh.thread_id = ? AND sh.started_at <= ? AND (sh.ended_at IS NULL OR sh.ended_at >= ?)
+      LIMIT 1
+    `);
 
     const results = topResults.map(r => {
       const surrounding = getMessageContext(r.messageId, contextSize);
+
+      let session: { sessionId: string; startedAt: string; endedAt: string | null } | null = null;
+      try {
+        const row = sessionStmt.get(r.threadId, r.createdAt, r.createdAt) as {
+          session_id: string; started_at: string; ended_at: string | null;
+        } | undefined;
+        if (row) session = { sessionId: row.session_id, startedAt: row.started_at, endedAt: row.ended_at };
+      } catch { /* best-effort */ }
+
       return {
         messageId: r.messageId,
         threadId: r.threadId,
         threadName: r.threadName,
         similarity: Math.round(r.similarity * 1000) / 1000,
         createdAt: r.createdAt,
+        role: r.role,
+        session,
         context: surrounding.map(m => ({
           id: m.id,
           role: m.role,
@@ -693,8 +706,9 @@ router.post('/internal/search-semantic', async (req, res) => {
       };
     });
 
+    const cache = getCacheStats();
     const { embedded, total } = getEmbeddingCount();
-    res.json({ results, indexed: embedded, totalMessages: total });
+    res.json({ results, indexed: embedded, totalMessages: total, cache });
   } catch (error) {
     console.error('Semantic search error:', error);
     res.status(500).json({ error: 'Semantic search failed' });

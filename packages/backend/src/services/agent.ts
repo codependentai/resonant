@@ -1,6 +1,6 @@
 import { query, AbortError, listSessions, type Options, type Query, type McpServerConfig, type ListSessionsOptions } from '@anthropic-ai/claude-agent-sdk';
 import type { McpServerInfo } from '@resonant/shared';
-import { createMessage, updateThreadSession, getThread, updateThreadActivity } from './db.js';
+import { createMessage, updateThreadSession, getThread, updateThreadActivity, createSessionRecord, endSessionRecord } from './db.js';
 import { registry } from './ws.js';
 import { createHooks, buildOrientationContext, type HookContext, type ToolInsertion } from './hooks.js';
 import type { MessageSegment } from '@resonant/shared';
@@ -638,8 +638,35 @@ export class AgentService {
       // Clean up active query tracking
       activeAbortController = null;
       activeQuery = null;
-      // Update session ID for future resume
+      // Track session transition and update for future resume
       if (sessionId) {
+        const previousSessionId = thread.current_session_id;
+        const now = new Date().toISOString();
+
+        // End the previous session record (if tracked)
+        if (previousSessionId && previousSessionId !== sessionId) {
+          try {
+            endSessionRecord({ sessionId: previousSessionId, endedAt: now, endReason: 'resumed' });
+          } catch { /* Previous session may not have a record yet */ }
+        }
+
+        // Create a record for the new session
+        if (sessionId !== previousSessionId) {
+          try {
+            createSessionRecord({
+              id: crypto.randomUUID(),
+              threadId,
+              sessionId,
+              sessionType: (thread.session_type as 'v1' | 'v2') || 'v2',
+              startedAt: now,
+            });
+          } catch (err) {
+            if (!(err instanceof Error && err.message.includes('UNIQUE'))) {
+              console.warn('Failed to create session record:', err);
+            }
+          }
+        }
+
         updateThreadSession(threadId, sessionId);
       }
       presenceStatus = 'dormant';

@@ -66,11 +66,11 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
 CREATE TABLE IF NOT EXISTS session_history (
   id TEXT PRIMARY KEY,
   thread_id TEXT NOT NULL,
-  session_id TEXT NOT NULL,
+  session_id TEXT NOT NULL UNIQUE,
   session_type TEXT NOT NULL CHECK(session_type IN ('v1', 'v2')),
   started_at TEXT NOT NULL,
   ended_at TEXT,
-  end_reason TEXT CHECK(end_reason IN ('compaction', 'reaper', 'daily_rotation', 'error', 'manual')),
+  end_reason TEXT CHECK(end_reason IN ('compaction', 'reaper', 'daily_rotation', 'error', 'manual', 'resumed')),
   tokens_used INTEGER,
   cost_usd REAL,
   peak_memory_mb INTEGER,

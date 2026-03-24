@@ -59,6 +59,16 @@ node tools/sc.mjs search "that conversation about the project deadline"
 # Search a specific thread
 node tools/sc.mjs search "query" --thread THREAD_ID --limit 5
 
+# Filter by speaker
+node tools/sc.mjs search "query" --role user
+node tools/sc.mjs search "query" --role companion
+
+# Filter by date range
+node tools/sc.mjs search "query" --after 2026-03-01 --before 2026-03-15
+
+# Combine filters
+node tools/sc.mjs search "that deadline" --role user --after 2026-03-01 --limit 20
+
 # Check indexing progress
 node tools/sc.mjs backfill 0    # processes 0, but shows indexed/total counts
 ```
@@ -66,10 +76,17 @@ node tools/sc.mjs backfill 0    # processes 0, but shows indexed/total counts
 ### Internal API (for programmatic access)
 
 ```bash
-# Semantic search
+# Semantic search (with optional filters)
 curl -X POST http://localhost:PORT/api/internal/search-semantic \
   -H "Content-Type: application/json" \
-  -d '{"query": "your search", "threadId": "optional", "limit": 10}'
+  -d '{
+    "query": "your search",
+    "threadId": "optional",
+    "role": "user",
+    "after": "2026-03-01",
+    "before": "2026-03-15",
+    "limit": 10
+  }'
 
 # Backfill embeddings
 curl -X POST http://localhost:PORT/api/internal/embed-backfill \
@@ -79,13 +96,16 @@ curl -X POST http://localhost:PORT/api/internal/embed-backfill \
 
 Both endpoints are localhost-only (no auth required).
 
+Search results include session context when available — which session the message belongs to and when that session started/ended. See [Session Maintenance](session-maintenance.md) for details on session tracking.
+
 ## Technical Details
 
 - **Model**: `sentence-transformers/all-MiniLM-L6-v2` (384-dimensional vectors)
 - **Storage**: `message_embeddings` table in SQLite (separate from messages table)
 - **Embedding**: Fire-and-forget on message creation — doesn't block message delivery
-- **Search**: Brute-force cosine similarity (fast enough for tens of thousands of messages)
-- **Memory**: Model uses ~100MB RAM when loaded; lazy-loads on first search, not on server start
+- **Vector cache**: All embeddings are loaded into a contiguous `Float32Array` at startup (~15 MB per 10K messages). Search is a tight dot-product loop with no SQLite queries per search.
+- **Pre-filtering**: `--role`, `--after`, `--before` filters are applied before vector math, cutting the search space
+- **Memory**: Embedding model uses ~100MB RAM when loaded; vector cache uses ~1.5 KB per message
 
 ## Troubleshooting
 

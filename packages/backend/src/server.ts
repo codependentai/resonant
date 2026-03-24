@@ -8,6 +8,7 @@ import { fileURLToPath } from 'url';
 import { existsSync, mkdirSync } from 'fs';
 import { loadConfig } from './config.js';
 import { initDb, deleteExpiredSessions } from './services/db.js';
+import { loadVectorCache } from './services/vector-cache.js';
 import { createWebSocketServer, setVoiceService, setGatewayServices, registry } from './services/ws.js';
 import { Orchestrator } from './services/orchestrator.js';
 import { AgentService } from './services/agent.js';
@@ -44,6 +45,7 @@ if (!existsSync(filesDir)) {
 console.log('Initializing database...');
 const db = initDb(DB_PATH);
 deleteExpiredSessions();
+loadVectorCache();
 console.log('Database initialized');
 
 // Create Express app

@@ -11,6 +11,7 @@ import type {
 } from '@resonant/shared';
 import { getResonantConfig } from '../config.js';
 import { embed, vectorToBuffer } from './embeddings.js';
+import { cacheEmbedding } from './vector-cache.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -107,6 +108,35 @@ export function initDb(dbPath: string): Database.Database {
       FOREIGN KEY (message_id) REFERENCES messages(id)
     )
   `);
+
+  // Session history migration — add UNIQUE on session_id + 'resumed' end_reason
+  const shCount = (db.prepare('SELECT COUNT(*) as c FROM session_history').get() as { c: number }).c;
+  if (shCount === 0) {
+    let needsRecreate = false;
+    try {
+      db.prepare("INSERT INTO session_history (id, thread_id, session_id, session_type, started_at, end_reason) VALUES ('__test', '__test', '__test', 'v1', '2026-01-01', 'resumed')").run();
+      db.prepare("DELETE FROM session_history WHERE id = '__test'").run();
+    } catch { needsRecreate = true; }
+    if (needsRecreate) {
+      db.exec('DROP TABLE session_history');
+      db.exec(`
+        CREATE TABLE session_history (
+          id TEXT PRIMARY KEY,
+          thread_id TEXT NOT NULL,
+          session_id TEXT NOT NULL UNIQUE,
+          session_type TEXT NOT NULL CHECK(session_type IN ('v1', 'v2')),
+          started_at TEXT NOT NULL,
+          ended_at TEXT,
+          end_reason TEXT CHECK(end_reason IN ('compaction', 'reaper', 'daily_rotation', 'error', 'manual', 'resumed')),
+          tokens_used INTEGER,
+          cost_usd REAL,
+          peak_memory_mb INTEGER,
+          FOREIGN KEY (thread_id) REFERENCES threads(id)
+        )
+      `);
+    }
+  }
+  db.exec('CREATE INDEX IF NOT EXISTS idx_session_history_thread_id ON session_history(thread_id)');
 
   return db;
 }
@@ -259,10 +289,13 @@ export function deleteThread(threadId: string): string[] {
 }
 
 // Async embedding helper — fire-and-forget from createMessage
-async function embedMessageAsync(messageId: string, content: string): Promise<void> {
+async function embedMessageAsync(messageId: string, content: string, meta: {
+  threadId: string; threadName: string; role: string; createdAt: string;
+}): Promise<void> {
   try {
     const vector = await embed(content);
     saveEmbedding(messageId, vectorToBuffer(vector));
+    cacheEmbedding(messageId, vector, meta);
   } catch (err) {
     console.error(`[embeddings] Failed to embed message ${messageId}:`, err);
   }
@@ -309,7 +342,13 @@ export function createMessage(params: {
 
   // Fire-and-forget embedding for text messages (non-system)
   if (params.role !== 'system' && (!params.contentType || params.contentType === 'text') && params.content.length > 10) {
-    embedMessageAsync(params.id, params.content).catch(() => {});
+    const thread = getThread(params.threadId);
+    embedMessageAsync(params.id, params.content, {
+      threadId: params.threadId,
+      threadName: thread?.name || '',
+      role: params.role,
+      createdAt: params.createdAt,
+    }).catch(() => {});
   }
 
   return getMessage(params.id)!;
@@ -570,7 +609,7 @@ export function createSessionRecord(params: {
 export function endSessionRecord(params: {
   sessionId: string;
   endedAt: string;
-  endReason: 'compaction' | 'reaper' | 'daily_rotation' | 'error' | 'manual';
+  endReason: 'compaction' | 'reaper' | 'daily_rotation' | 'error' | 'manual' | 'resumed';
 }): void {
   const stmt = getDb().prepare(`
     UPDATE session_history
