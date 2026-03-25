@@ -685,6 +685,21 @@ export function getConfigNumber(key: string, defaultValue: number): number {
   return isNaN(num) ? defaultValue : num;
 }
 
+export function getConfigsByPrefix(prefix: string): Record<string, string> {
+  const stmt = getDb().prepare("SELECT key, value FROM config WHERE key LIKE ?");
+  const rows = stmt.all(`${prefix}%`) as Array<{ key: string; value: string }>;
+  const result: Record<string, string> = {};
+  for (const row of rows) {
+    result[row.key] = row.value;
+  }
+  return result;
+}
+
+export function deleteConfig(key: string): void {
+  const stmt = getDb().prepare('DELETE FROM config WHERE key = ?');
+  stmt.run(key);
+}
+
 export function getAllConfig(): Record<string, string> {
   const stmt = getDb().prepare('SELECT key, value FROM config');
   const rows = stmt.all() as Array<{ key: string; value: string }>;

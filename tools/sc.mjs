@@ -87,11 +87,63 @@ switch (cmd) {
     await post('tts', { text: args[0], threadId: thread });
     break;
 
+  case 'routine':
   case 'schedule': {
-    const body = { action: args[0] };
-    if (args[1]) body.wakeType = args[1];
-    if (args[2]) body.cronExpr = args[2];
-    await post('orchestrator', body);
+    const sub = args[0];
+    if (sub === 'create') {
+      const label = args[1];
+      const cronExpr = args[2];
+      if (!label || !cronExpr) { console.log('Usage: sc routine create "label" "cronExpr" --prompt "what to do"'); break; }
+      const wakeType = label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+      let prompt = undefined;
+      const pi = args.indexOf('--prompt');
+      if (pi !== -1 && args[pi + 1]) prompt = args[pi + 1];
+      await post('orchestrator', { action: 'create_routine', wakeType, label, cronExpr, prompt });
+    } else if (sub === 'remove') {
+      if (!args[1]) { console.log('Usage: sc routine remove ROUTINE_ID'); break; }
+      await post('orchestrator', { action: 'remove_routine', wakeType: args[1] });
+    } else {
+      const body = { action: sub };
+      if (args[1]) body.wakeType = args[1];
+      if (args[2]) body.cronExpr = args[2];
+      await post('orchestrator', body);
+    }
+    break;
+  }
+
+  case 'pulse': {
+    const sub = args[0];
+    if (!sub || sub === 'status') {
+      await post('orchestrator', { action: 'pulse_status' });
+    } else if (sub === 'enable') {
+      await post('orchestrator', { action: 'pulse_config', enabled: true });
+    } else if (sub === 'disable') {
+      await post('orchestrator', { action: 'pulse_config', enabled: false });
+    } else if (sub === 'frequency') {
+      const minutes = parseInt(args[1], 10);
+      if (isNaN(minutes) || minutes < 5) { console.log('Usage: sc pulse frequency MINUTES (min 5)'); break; }
+      await post('orchestrator', { action: 'pulse_config', frequency: minutes });
+    } else {
+      console.log('Usage: sc pulse [status|enable|disable|frequency MINUTES]');
+    }
+    break;
+  }
+
+  case 'failsafe': {
+    const sub = args[0];
+    if (!sub || sub === 'status') {
+      await post('orchestrator', { action: 'failsafe_status' });
+    } else if (sub === 'enable') {
+      await post('orchestrator', { action: 'failsafe_config', enabled: true });
+    } else if (sub === 'disable') {
+      await post('orchestrator', { action: 'failsafe_config', enabled: false });
+    } else if (['gentle', 'concerned', 'emergency'].includes(sub)) {
+      const minutes = parseInt(args[1], 10);
+      if (isNaN(minutes)) { console.log(`Usage: sc failsafe ${sub} MINUTES`); break; }
+      await post('orchestrator', { action: 'failsafe_config', [sub]: minutes });
+    } else {
+      console.log('Usage: sc failsafe [status|enable|disable|gentle|concerned|emergency] [minutes]');
+    }
     break;
   }
 
@@ -255,7 +307,7 @@ switch (cmd) {
 
   default:
     console.log('sc — Resonant internal API CLI');
-    console.log('Commands: share, canvas, voice, schedule, timer, react, impulse, watch, tg, search, backfill');
+    console.log('Commands: share, canvas, voice, routine (schedule), pulse, failsafe, timer, react, impulse, watch, tg, search, backfill');
     break;
 }
 

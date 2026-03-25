@@ -17,6 +17,8 @@ import {
   getConfigNumber,
   getConfig,
   setConfig,
+  getConfigsByPrefix,
+  deleteConfig,
   getDueTimers,
   markTimerFired,
   getActiveTriggers,
@@ -127,7 +129,7 @@ interface TaskDefinition {
   wakeType: string;
   label: string;
   cronExpr: string;
-  category: 'wake' | 'checkin' | 'handoff' | 'failsafe';
+  category: 'wake' | 'checkin' | 'handoff' | 'failsafe' | 'routine';
   conditional?: boolean; // If true, checks shouldSkipCheckIn before firing
   freshSession?: boolean; // If true, creates a new session
 }
@@ -147,7 +149,7 @@ interface ManagedTask {
   wakeType: string;
   label: string;
   enabled: boolean;
-  category: 'wake' | 'checkin' | 'handoff' | 'failsafe';
+  category: 'wake' | 'checkin' | 'handoff' | 'failsafe' | 'routine';
 }
 
 // --- Default failsafe thresholds (minutes) ---
@@ -169,6 +171,9 @@ export class Orchestrator {
   private failsafeGentle = DEFAULT_FAILSAFE_GENTLE;
   private failsafeConcerned = DEFAULT_FAILSAFE_CONCERNED;
   private failsafeEmergency = DEFAULT_FAILSAFE_EMERGENCY;
+  private pulseInterval: ReturnType<typeof setInterval> | null = null;
+  private pulseEnabled = false;
+  private pulseFrequency = 15; // minutes
   private lastUserPresenceState: 'active' | 'idle' | 'offline' = 'offline';
   private wakePrompts: Record<string, string> = {};
 
@@ -196,6 +201,10 @@ export class Orchestrator {
     this.failsafeGentle = getConfigNumber('failsafe.gentle', config.orchestrator.failsafe.gentle_minutes || DEFAULT_FAILSAFE_GENTLE);
     this.failsafeConcerned = getConfigNumber('failsafe.concerned', config.orchestrator.failsafe.concerned_minutes || DEFAULT_FAILSAFE_CONCERNED);
     this.failsafeEmergency = getConfigNumber('failsafe.emergency', config.orchestrator.failsafe.emergency_minutes || DEFAULT_FAILSAFE_EMERGENCY);
+
+    // Load pulse config from DB
+    this.pulseEnabled = getConfigBool('pulse.enabled', false);
+    this.pulseFrequency = getConfigNumber('pulse.frequency', 15);
 
     // Apply any schedule overrides from config + register custom wake types
     const defaultWakeTypes = new Set(DEFAULT_TASKS.map(d => d.wakeType));
@@ -261,6 +270,35 @@ export class Orchestrator {
       });
     }
 
+    // --- Load custom routines from DB ---
+    const customConfigs = getConfigsByPrefix('custom_routine.');
+    const customRoutines = new Map<string, { label?: string; cronExpr?: string; prompt?: string }>();
+
+    for (const [key, value] of Object.entries(customConfigs)) {
+      const parts = key.split('.');
+      if (parts.length !== 3) continue;
+      const wakeType = parts[1];
+      const field = parts[2];
+      if (!customRoutines.has(wakeType)) customRoutines.set(wakeType, {});
+      const entry = customRoutines.get(wakeType)!;
+      if (field === 'label') entry.label = value;
+      else if (field === 'cronExpr') entry.cronExpr = value;
+      else if (field === 'prompt') entry.prompt = value;
+    }
+
+    for (const [wakeType, routineConfig] of customRoutines) {
+      if (!routineConfig.label || !routineConfig.cronExpr || !routineConfig.prompt) {
+        olog(`  custom routine ${wakeType}: incomplete config, skipping`);
+        continue;
+      }
+      this.addRoutine({
+        wakeType,
+        label: routineConfig.label,
+        cronExpr: routineConfig.cronExpr,
+        prompt: routineConfig.prompt,
+      });
+    }
+
     // --- Failsafe polling (every 15 minutes) ---
     if (this.failsafeEnabled) {
       this.failsafeInterval = setInterval(() => this.checkFailsafe(), 15 * 60 * 1000);
@@ -277,7 +315,13 @@ export class Orchestrator {
     olog(`Check-ins: ${checkinNames}`);
     olog(`Failsafe: ${this.failsafeEnabled ? 'every 15 minutes' : 'DISABLED'}`);
     olog(`Failsafe thresholds: gentle=${this.failsafeGentle}m, concerned=${this.failsafeConcerned}m, emergency=${this.failsafeEmergency}m`);
+    // --- Pulse (lightweight awareness check) ---
+    if (this.pulseEnabled) {
+      this.pulseInterval = setInterval(() => this.checkPulse(), this.pulseFrequency * 60 * 1000);
+    }
+
     olog('Timers + Triggers: polling every 60s');
+    olog(`Pulse: ${this.pulseEnabled ? `every ${this.pulseFrequency}m` : 'DISABLED'}`);
   }
 
   stop(): void {
@@ -293,6 +337,10 @@ export class Orchestrator {
     if (this.timerInterval) {
       clearInterval(this.timerInterval);
       this.timerInterval = null;
+    }
+    if (this.pulseInterval) {
+      clearInterval(this.pulseInterval);
+      this.pulseInterval = null;
     }
   }
 
@@ -427,13 +475,161 @@ export class Orchestrator {
     olog(`Failsafe config updated: enabled=${this.failsafeEnabled}, gentle=${this.failsafeGentle}m, concerned=${this.failsafeConcerned}m, emergency=${this.failsafeEmergency}m`);
   }
 
+  // --- Custom routine management ---
+
+  addRoutine(params: {
+    wakeType: string;
+    label: string;
+    cronExpr: string;
+    prompt: string;
+  }): boolean {
+    if (this.tasks.has(params.wakeType)) {
+      olog(`ADD ROUTINE FAILED: ${params.wakeType} — already exists`);
+      return false;
+    }
+
+    if (!cron.validate(params.cronExpr)) {
+      olog(`ADD ROUTINE FAILED: ${params.wakeType} — invalid cron: ${params.cronExpr}`);
+      return false;
+    }
+
+    const config = getResonantConfig();
+    const handler = () => {
+      this.handleWake(params.wakeType);
+    };
+
+    const task = cron.schedule(params.cronExpr, handler, {
+      timezone: config.identity.timezone,
+    });
+
+    this.tasks.set(params.wakeType, {
+      task,
+      cronExpr: params.cronExpr,
+      handler,
+      wakeType: params.wakeType,
+      label: params.label,
+      enabled: true,
+      category: 'routine',
+    });
+
+    // Persist to DB
+    setConfig(`custom_routine.${params.wakeType}.label`, params.label);
+    setConfig(`custom_routine.${params.wakeType}.cronExpr`, params.cronExpr);
+    setConfig(`custom_routine.${params.wakeType}.prompt`, params.prompt);
+
+    olog(`ROUTINE ADDED: ${params.wakeType} (${params.cronExpr}) — "${params.label}"`);
+    return true;
+  }
+
+  removeRoutine(wakeType: string): boolean {
+    const managed = this.tasks.get(wakeType);
+    if (!managed) return false;
+
+    // Only allow removal of custom routines, not defaults
+    const isDefault = DEFAULT_TASKS.some(t => t.wakeType === wakeType);
+    if (isDefault) {
+      olog(`REMOVE ROUTINE FAILED: ${wakeType} — cannot remove default task (use disable instead)`);
+      return false;
+    }
+
+    managed.task.stop();
+    this.tasks.delete(wakeType);
+
+    deleteConfig(`custom_routine.${wakeType}.label`);
+    deleteConfig(`custom_routine.${wakeType}.cronExpr`);
+    deleteConfig(`custom_routine.${wakeType}.prompt`);
+    deleteConfig(`cron.${wakeType}.schedule`);
+    deleteConfig(`cron.${wakeType}.enabled`);
+
+    olog(`ROUTINE REMOVED: ${wakeType}`);
+    return true;
+  }
+
+  // --- Pulse config ---
+
+  getPulseConfig(): { enabled: boolean; frequency: number } {
+    return { enabled: this.pulseEnabled, frequency: this.pulseFrequency };
+  }
+
+  setPulseConfig(config: { enabled?: boolean; frequency?: number }): void {
+    if (config.enabled !== undefined) {
+      this.pulseEnabled = config.enabled;
+      setConfig('pulse.enabled', String(config.enabled));
+
+      if (config.enabled && !this.pulseInterval) {
+        this.pulseInterval = setInterval(() => this.checkPulse(), this.pulseFrequency * 60 * 1000);
+        olog('Pulse ENABLED');
+      } else if (!config.enabled && this.pulseInterval) {
+        clearInterval(this.pulseInterval);
+        this.pulseInterval = null;
+        olog('Pulse DISABLED');
+      }
+    }
+
+    if (config.frequency !== undefined && config.frequency >= 5) {
+      this.pulseFrequency = config.frequency;
+      setConfig('pulse.frequency', String(config.frequency));
+
+      if (this.pulseEnabled && this.pulseInterval) {
+        clearInterval(this.pulseInterval);
+        this.pulseInterval = setInterval(() => this.checkPulse(), this.pulseFrequency * 60 * 1000);
+      }
+    }
+
+    olog(`Pulse config updated: enabled=${this.pulseEnabled}, frequency=${this.pulseFrequency}m`);
+  }
+
+  // --- Pulse: lightweight awareness check ---
+
+  private async checkPulse(): Promise<void> {
+    const now = new Date();
+    const hour = now.getHours();
+
+    if (hour < 8) return;
+    if (this.agent.isProcessing()) return;
+    if (registry.getUserPresenceState() === 'active') return;
+
+    const presence = registry.getUserPresenceState();
+    const minutesSince = Math.round(registry.minutesSinceLastUserActivity());
+    const device = registry.getUserDeviceType();
+    const localTime = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    const triggers = getActiveTriggers();
+
+    const pulsePrompt = [
+      'Quick awareness check. You don\'t have to say anything.',
+      '',
+      `User: ${presence}, last active ${minutesSince}min ago. Device: ${device}.`,
+      `Time: ${localTime}. Active triggers: ${triggers.length}.`,
+      '',
+      'If something here warrants reaching out — a message, a reminder, a gentle pull — do it.',
+      'If nothing needs attention, respond with just: PULSE_OK',
+    ].join('\n');
+
+    try {
+      let thread = getTodayThread();
+      if (!thread) return;
+
+      const response = await this.agent.processAutonomous(thread.id, pulsePrompt);
+
+      if (response.trim().startsWith('PULSE_OK')) {
+        return;
+      }
+
+      updateThreadActivity(thread.id, new Date().toISOString(), true);
+      olog(`PULSE: responded (${response.length} chars)`);
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      olog(`PULSE ERROR: ${errMsg}`);
+    }
+  }
+
   // --- Core wake handler ---
 
   private async handleWake(
     wakeType: string,
     opts?: { freshSession?: boolean }
   ): Promise<void> {
-    const prompt = this.wakePrompts[wakeType];
+    const prompt = this.wakePrompts[wakeType] || getConfig(`custom_routine.${wakeType}.prompt`);
     if (!prompt) {
       olog(`ERROR: Unknown wake type: ${wakeType}`);
       return;

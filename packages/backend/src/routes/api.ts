@@ -381,7 +381,7 @@ router.post('/internal/orchestrator', async (req, res) => {
     return;
   }
 
-  const { action, wakeType, cronExpr } = req.body;
+  const { action, wakeType, cronExpr, label, prompt, enabled, gentle, concerned, emergency, frequency } = req.body;
 
   try {
     switch (action) {
@@ -411,8 +411,40 @@ router.post('/internal/orchestrator', async (req, res) => {
         res.json({ success: true, wakeType, cronExpr });
         break;
       }
+      case 'create_routine': {
+        if (!wakeType || !cronExpr || !label) { res.status(400).json({ error: 'wakeType, label, and cronExpr required' }); return; }
+        const crSuccess = orchestrator.addRoutine({ wakeType, label, cronExpr, prompt: prompt || `Custom routine: ${label}` });
+        if (!crSuccess) { res.status(400).json({ error: 'Failed — invalid cron, missing prompt, or wakeType already exists' }); return; }
+        res.json({ success: true, wakeType, label, cronExpr });
+        break;
+      }
+      case 'remove_routine': {
+        if (!wakeType) { res.status(400).json({ error: 'wakeType required' }); return; }
+        const rrSuccess = orchestrator.removeRoutine(wakeType);
+        if (!rrSuccess) { res.status(400).json({ error: 'Failed — unknown routine or cannot remove default task' }); return; }
+        res.json({ success: true, wakeType });
+        break;
+      }
+      case 'pulse_status': {
+        res.json(orchestrator.getPulseConfig());
+        break;
+      }
+      case 'pulse_config': {
+        orchestrator.setPulseConfig({ enabled, frequency });
+        res.json({ success: true, ...orchestrator.getPulseConfig() });
+        break;
+      }
+      case 'failsafe_status': {
+        res.json(orchestrator.getFailsafeConfig());
+        break;
+      }
+      case 'failsafe_config': {
+        orchestrator.setFailsafeConfig({ enabled, gentle, concerned, emergency });
+        res.json({ success: true, ...orchestrator.getFailsafeConfig() });
+        break;
+      }
       default:
-        res.status(400).json({ error: 'Unknown action. Use: status, enable, disable, reschedule' });
+        res.status(400).json({ error: 'Unknown action. Use: status, enable, disable, reschedule, create_routine, remove_routine, pulse_status, pulse_config, failsafe_status, failsafe_config' });
     }
   } catch (error) {
     console.error('Orchestrator internal error:', error);

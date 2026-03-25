@@ -98,7 +98,7 @@ export interface OrchestratorTaskStatus {
   enabled: boolean;
   status: 'scheduled' | 'stopped' | 'running';
   nextRun: string | null;
-  category: 'wake' | 'checkin' | 'handoff' | 'failsafe';
+  category: 'wake' | 'checkin' | 'handoff' | 'failsafe' | 'routine';
 }
 
 export interface SystemStatus {
