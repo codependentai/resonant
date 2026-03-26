@@ -39,6 +39,7 @@ import type { VoiceService } from './voice.js';
 import type { DiscordService } from './discord/index.js';
 import type { TelegramService } from './telegram/index.js';
 import { getResonantConfig } from '../config.js';
+import { buildCommandRegistry, handleCommand } from './commands.js';
 
 function getAllowedOrigins(): string[] {
   const config = getResonantConfig();
@@ -319,6 +320,7 @@ export function createWebSocketServer(server: HTTPServer, agentService?: AgentSe
       sessionStatus: agent.getPresenceStatus(),
       threads: threadsToSummaries(threads),
       activeThreadId: today?.id ?? null,
+      commands: buildCommandRegistry(),
     };
     extWs.send(JSON.stringify(connectedMsg));
 
@@ -497,6 +499,24 @@ export function createWebSocketServer(server: HTTPServer, agentService?: AgentSe
               error: result.error,
             };
             extWs.send(JSON.stringify(rewindMsg));
+            break;
+          }
+          case 'command': {
+            registry.touchUserActivity();
+            registry.touchUserWebActivity();
+            const cmdResult = await handleCommand(
+              clientMsg.name,
+              clientMsg.args,
+              clientMsg.threadId,
+              { agent, orchestrator, registry },
+            );
+            extWs.send(JSON.stringify(cmdResult));
+
+            // If command created/renamed a thread, broadcast updated list
+            if (clientMsg.name === 'new' || clientMsg.name === 'rename') {
+              const updatedThreads = listThreads({ includeArchived: false });
+              registry.broadcast({ type: 'thread_list', threads: threadsToSummaries(updatedThreads) });
+            }
             break;
           }
           default:

@@ -1,4 +1,4 @@
-import type { ServerMessage, ClientMessage, Message, Canvas, ThreadSummary, PresenceStatus, SystemStatus, MessageSegment } from '@resonant/shared';
+import type { ServerMessage, ClientMessage, Message, Canvas, ThreadSummary, PresenceStatus, SystemStatus, MessageSegment, CommandRegistryEntry } from '@resonant/shared';
 import { setSystemStatus } from './settings.svelte';
 
 // Connection state
@@ -62,6 +62,11 @@ let rateLimitTimeout: ReturnType<typeof setTimeout> | null = null;
 
 // Rewind state
 let rewindResult = $state<{ canRewind: boolean; filesChanged?: string[]; insertions?: number; deletions?: number; error?: string } | null>(null);
+
+// Command state
+let commandRegistry = $state<CommandRegistryEntry[]>([]);
+let lastCommandResult = $state<{ name: string; success: boolean; data?: Record<string, unknown>; error?: string; display?: string } | null>(null);
+let commandResultTimeout: ReturnType<typeof setTimeout> | null = null;
 
 // Canvas state
 let canvases = $state<Canvas[]>([]);
@@ -160,6 +165,8 @@ function handleMessage(event: MessageEvent) {
         for (const t of msg.threads) {
           unreadCounts[t.id] = t.unread_count;
         }
+        // Command registry
+        if (msg.commands) commandRegistry = msg.commands;
         break;
 
       case 'message':
@@ -486,6 +493,15 @@ function handleMessage(event: MessageEvent) {
         rewindResult = { canRewind: msg.canRewind, filesChanged: msg.filesChanged, insertions: msg.insertions, deletions: msg.deletions, error: msg.error };
         break;
 
+      case 'command_result':
+        lastCommandResult = { name: msg.name, success: msg.success, data: msg.data, error: msg.error, display: msg.display };
+        // Auto-clear non-silent results after 5 seconds
+        if (msg.display !== 'silent') {
+          if (commandResultTimeout) clearTimeout(commandResultTimeout);
+          commandResultTimeout = setTimeout(() => { lastCommandResult = null; }, 5000);
+        }
+        break;
+
       case 'error':
         console.error(`Server error [${msg.code}]: ${msg.message}`);
         lastError = { code: msg.code, message: msg.message };
@@ -800,3 +816,11 @@ export function sendRewindFiles(userMessageId: string, dryRun?: boolean) {
   send({ type: 'rewind_files', userMessageId, dryRun });
 }
 export function getRewindResult() { return rewindResult; }
+
+// Command system
+export function getCommandRegistry() { return commandRegistry; }
+export function getLastCommandResult() { return lastCommandResult; }
+export function clearCommandResult() { lastCommandResult = null; }
+export function sendCommand(name: string, args?: string, threadId?: string) {
+  send({ type: 'command', name, args, threadId });
+}

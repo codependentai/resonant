@@ -2,6 +2,16 @@
 
 import type { Message, Thread, Canvas, PresenceStatus, ThreadSummary, SystemStatus } from './types.js';
 
+// --- Command system ---
+
+export interface CommandRegistryEntry {
+  name: string;
+  description: string;
+  category: 'builtin' | 'skill' | 'custom';
+  args?: string;        // placeholder hint, e.g. "[name]"
+  clientOnly?: boolean;  // true = handled in frontend, no server round-trip
+}
+
 // --- Client -> Server ---
 
 export type ClientMessage =
@@ -33,7 +43,8 @@ export type ClientMessage =
   | { type: 'stop_generation' }
   | { type: 'mcp_reconnect'; serverName: string }
   | { type: 'mcp_toggle'; serverName: string; enabled: boolean }
-  | { type: 'rewind_files'; userMessageId: string; dryRun?: boolean };
+  | { type: 'rewind_files'; userMessageId: string; dryRun?: boolean }
+  | { type: 'command'; name: string; args?: string; threadId?: string };
 
 // --- Server -> Client ---
 
@@ -59,7 +70,7 @@ export type ServerMessage =
   | { type: 'tts_end'; messageId: string }
   | { type: 'sync_response'; messages: Message[] }
   | { type: 'error'; code: string; message: string }
-  | { type: 'connected'; sessionStatus: PresenceStatus; threads: ThreadSummary[]; activeThreadId: string | null }
+  | { type: 'connected'; sessionStatus: PresenceStatus; threads: ThreadSummary[]; activeThreadId: string | null; commands?: CommandRegistryEntry[] }
   | { type: 'pong' }
   | { type: 'system_status'; status: SystemStatus }
   | { type: 'thread_deleted'; threadId: string }
@@ -77,7 +88,8 @@ export type ServerMessage =
   | { type: 'rate_limit'; status: string; resetsAt?: number; rateLimitType?: string; utilization?: number }
   | { type: 'tool_progress'; toolId: string; toolName: string; elapsed: number }
   | { type: 'mcp_status_updated'; servers: import('./types.js').McpServerInfo[] }
-  | { type: 'rewind_result'; canRewind: boolean; filesChanged?: string[]; insertions?: number; deletions?: number; error?: string };
+  | { type: 'rewind_result'; canRewind: boolean; filesChanged?: string[]; insertions?: number; deletions?: number; error?: string }
+  | { type: 'command_result'; name: string; success: boolean; data?: Record<string, unknown>; error?: string; display?: 'toast' | 'panel' | 'silent' };
 
 // --- Message type guards ---
 
@@ -92,7 +104,7 @@ export function isClientMessage(data: unknown): data is ClientMessage {
     'voice_stop', 'voice_interrupt', 'voice_mode', 'sync', 'ping', 'request_status',
     'canvas_create', 'canvas_update', 'canvas_update_title', 'canvas_delete', 'canvas_list',
     'add_reaction', 'remove_reaction', 'pin_thread', 'unpin_thread', 'visibility',
-    'stop_generation', 'mcp_reconnect', 'mcp_toggle', 'rewind_files',
+    'stop_generation', 'mcp_reconnect', 'mcp_toggle', 'rewind_files', 'command',
   ];
 
   return validTypes.includes(msg.type);

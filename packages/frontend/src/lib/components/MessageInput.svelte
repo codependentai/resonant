@@ -1,8 +1,10 @@
 <script lang="ts">
-  import type { Message } from '@resonant/shared';
+  import type { Message, CommandRegistryEntry } from '@resonant/shared';
   import VoiceRecorder from './VoiceRecorder.svelte';
   import VoiceModeToggle from './VoiceModeToggle.svelte';
   import { getCompanionName } from '$lib/stores/settings.svelte';
+  import CommandPalette from './CommandPalette.svelte';
+  import { getCommandRegistry, sendCommand } from '$lib/stores/websocket.svelte';
 
   let companionName = $derived(getCompanionName());
 
@@ -18,12 +20,14 @@
   let {
     replyTo = null,
     isStreaming = false,
+    activeThreadId = null,
     onbatchsend,
     oncancelreply,
     onstop,
   } = $props<{
     replyTo?: Message | null;
     isStreaming?: boolean;
+    activeThreadId?: string | null;
     onbatchsend?: (text: string, files: FileUploadResult[], prosody?: Record<string, number>) => void;
     oncancelreply?: () => void;
     onstop?: () => void;
@@ -37,6 +41,12 @@
   let pendingAttachments = $state<FileUploadResult[]>([]);
   let pendingProsody = $state<Record<string, number> | null>(null);
 
+  // Command palette state
+  let showCommandPalette = $state(false);
+  let commandFilter = $state('');
+  let paletteRef: CommandPalette;
+  let commandRegistry = $derived(getCommandRegistry());
+
   // Can send if there's text or pending attachments
   let canSend = $derived(content.trim().length > 0 || pendingAttachments.length > 0);
 
@@ -48,22 +58,93 @@
     }
   }
 
-  // Handle send — bundle all attachments + text into a single batched send
+  // Detect slash commands on input
+  function handleInput() {
+    autoResize();
+    // Show command palette when content starts with / and is a single line
+    if (content.startsWith('/') && !content.includes('\n')) {
+      showCommandPalette = true;
+      commandFilter = content.slice(1).split(' ')[0]; // filter on command name only
+    } else {
+      showCommandPalette = false;
+      commandFilter = '';
+    }
+  }
+
+  // Handle command selection from palette
+  function handleCommandSelect(command: CommandRegistryEntry) {
+    showCommandPalette = false;
+
+    if (command.clientOnly) {
+      executeClientCommand(command.name);
+      resetInput();
+      return;
+    }
+
+    if (command.args) {
+      // Command takes arguments — fill prefix and let user type
+      content = `/${command.name} `;
+      textarea?.focus();
+      return;
+    }
+
+    // No-arg server command — execute immediately
+    sendCommand(command.name, undefined, activeThreadId ?? undefined);
+    resetInput();
+  }
+
+  // Client-side command execution
+  function executeClientCommand(name: string) {
+    switch (name) {
+      case 'help':
+        // Show full palette with no filter
+        showCommandPalette = true;
+        commandFilter = '';
+        content = '/';
+        return; // Don't reset — keep palette open
+      case 'stop':
+        onstop?.();
+        break;
+    }
+  }
+
+  // Handle send — check for slash commands first
   function handleSend() {
     if (!canSend) return;
 
     const trimmed = content.trim();
+
+    // Check if this is a slash command
+    if (trimmed.startsWith('/')) {
+      const spaceIndex = trimmed.indexOf(' ');
+      const name = spaceIndex === -1 ? trimmed.slice(1) : trimmed.slice(1, spaceIndex);
+      const args = spaceIndex === -1 ? undefined : trimmed.slice(spaceIndex + 1).trim() || undefined;
+
+      const cmd = commandRegistry.find(c => c.name === name);
+      if (cmd) {
+        if (cmd.clientOnly) {
+          executeClientCommand(name);
+        } else {
+          sendCommand(name, args, activeThreadId ?? undefined);
+        }
+        resetInput();
+        return;
+      }
+      // Not a recognized command — fall through to send as regular message
+    }
+
     const files = [...pendingAttachments];
-
     onbatchsend?.(trimmed, files, pendingProsody ?? undefined);
+    resetInput();
+  }
 
+  function resetInput() {
     pendingAttachments = [];
     content = '';
     pendingProsody = null;
-
-    if (textarea) {
-      textarea.style.height = 'auto';
-    }
+    showCommandPalette = false;
+    commandFilter = '';
+    if (textarea) textarea.style.height = 'auto';
   }
 
   // Remove a pending attachment
@@ -71,8 +152,13 @@
     pendingAttachments = pendingAttachments.filter((_, i) => i !== index);
   }
 
-  // Handle keyboard
+  // Handle keyboard — route to palette when open
   function handleKeydown(e: KeyboardEvent) {
+    if (showCommandPalette && paletteRef) {
+      const handled = paletteRef.handleKey(e);
+      if (handled) return;
+    }
+
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
@@ -199,6 +285,16 @@
     </div>
   {/if}
 
+  {#if showCommandPalette}
+    <CommandPalette
+      bind:this={paletteRef}
+      filter={commandFilter}
+      commands={commandRegistry}
+      onselect={handleCommandSelect}
+      onclose={() => { showCommandPalette = false; }}
+    />
+  {/if}
+
   <div class="input-bar">
     <input
       bind:this={fileInput}
@@ -231,6 +327,7 @@
     <textarea
       bind:this={textarea}
       bind:value={content}
+      oninput={handleInput}
       onkeydown={handleKeydown}
       onpaste={handlePaste}
       placeholder="Type a message..."

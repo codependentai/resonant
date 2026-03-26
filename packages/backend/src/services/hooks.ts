@@ -847,23 +847,31 @@ function formatTimeGap(minutes: number): string {
 // Skill scanning — parse frontmatter from AGENT_CWD/.claude/skills/*/SKILL.md
 // ---------------------------------------------------------------------------
 
-let skillsCache: { summaries: string; scannedAt: number } | null = null;
+export interface SkillInfo {
+  name: string;
+  description: string;
+  path: string;
+  dirName: string;
+}
+
+let skillsStructuredCache: { skills: SkillInfo[]; scannedAt: number } | null = null;
+let skillsSummaryCache: { summaries: string; scannedAt: number } | null = null;
 const SKILLS_CACHE_MS = 60 * 1000; // Re-scan every 60s
 
-function scanSkillSummaries(): string {
+/** Scan skills directory and return structured data. Used by commands.ts for registry. */
+export function scanSkills(): SkillInfo[] {
   const config = getResonantConfig();
   const skillsDir = join(config.agent.cwd, '.claude', 'skills');
 
-  // Return cached if fresh
-  if (skillsCache && (Date.now() - skillsCache.scannedAt) < SKILLS_CACHE_MS) {
-    return skillsCache.summaries;
+  if (skillsStructuredCache && (Date.now() - skillsStructuredCache.scannedAt) < SKILLS_CACHE_MS) {
+    return skillsStructuredCache.skills;
   }
 
   try {
-    if (!existsSync(skillsDir)) return '';
+    if (!existsSync(skillsDir)) return [];
 
     const entries = readdirSync(skillsDir, { withFileTypes: true });
-    const skills: Array<{ name: string; description: string; path: string }> = [];
+    const skills: SkillInfo[] = [];
 
     for (const entry of entries) {
       if (!entry.isDirectory()) continue;
@@ -883,27 +891,39 @@ function scanSkillSummaries(): string {
         name: nameMatch[1].trim(),
         description: descMatch ? descMatch[1].trim() : '',
         path: skillFile.replace(/\\/g, '/'),
+        dirName: entry.name,
       });
     }
 
-    if (skills.length === 0) return '';
-
-    const lines = ['SKILLS (read with Bash cat when needed):'];
-    for (const skill of skills) {
-      const desc = skill.description.length > 150
-        ? skill.description.substring(0, 150) + '...'
-        : skill.description;
-      lines.push(`- ${skill.name}: ${desc}`);
-      lines.push(`  Path: ${skill.path}`);
-    }
-
-    const result = lines.join('\n');
-    skillsCache = { summaries: result, scannedAt: Date.now() };
-    return result;
+    skillsStructuredCache = { skills, scannedAt: Date.now() };
+    return skills;
   } catch (error) {
     console.warn('[Skills] Failed to scan skills:', (error as Error).message);
-    return '';
+    return [];
   }
+}
+
+/** Formatted skill summaries for orientation context injection. */
+function scanSkillSummaries(): string {
+  if (skillsSummaryCache && (Date.now() - skillsSummaryCache.scannedAt) < SKILLS_CACHE_MS) {
+    return skillsSummaryCache.summaries;
+  }
+
+  const skills = scanSkills();
+  if (skills.length === 0) return '';
+
+  const lines = ['SKILLS (read with Bash cat when needed):'];
+  for (const skill of skills) {
+    const desc = skill.description.length > 150
+      ? skill.description.substring(0, 150) + '...'
+      : skill.description;
+    lines.push(`- ${skill.name}: ${desc}`);
+    lines.push(`  Path: ${skill.path}`);
+  }
+
+  const result = lines.join('\n');
+  skillsSummaryCache = { summaries: result, scannedAt: Date.now() };
+  return result;
 }
 
 // ---------------------------------------------------------------------------

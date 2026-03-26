@@ -31,11 +31,20 @@ Open a GitHub Issue to discuss before writing code:
 - **Database schema changes** — migrations affect existing users
 - **Dependency additions** — we keep the dependency tree intentionally small
 
+## Help wanted: Multi-provider support
+
+Resonant currently runs on the Claude Code Agent SDK. We'd love to support other LLM providers (OpenAI, Google Gemini, Ollama, etc.) so people can use Resonant with whichever model they prefer.
+
+This is a significant piece of work and we're actively looking for contributors who use other providers and want to help build adapter support. The coupling is concentrated in two files (`packages/backend/src/services/agent.ts` and `hooks.ts`) — everything else (database, WebSocket protocol, orchestrator, platform integrations) is already provider-agnostic.
+
+The key challenge: Resonant's tool system (MCP servers, file operations, bash execution) is core to the methodology — not optional. Any provider adapter needs to support a full agent loop with tool calling, not just chat completions.
+
+If you're interested, open an issue to discuss your approach before writing code. We're happy to collaborate on the design.
+
 ## What we won't accept
 
 The following are architectural decisions, not oversights:
 
-- **Alternative AI backends** — Resonant is built on Claude Code Agent SDK. That's the product.
 - **Framework swaps** — SvelteKit frontend, Express backend. These aren't changing.
 - **Cloud-hosted variants** — Resonant is self-hosted. That's the point.
 - **Electron/Tauri wrappers** — the PWA approach is intentional

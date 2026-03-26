@@ -623,6 +623,12 @@ export class Orchestrator {
     }
   }
 
+  // --- Public manual wake (called from /wake command) ---
+
+  async triggerManualWake(wakeType = 'manual'): Promise<void> {
+    await this.handleWake(wakeType);
+  }
+
   // --- Core wake handler ---
 
   private async handleWake(

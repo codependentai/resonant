@@ -35,6 +35,8 @@
     sendStopGeneration,
     isStreaming,
     getRateLimitInfo,
+    getLastCommandResult,
+    clearCommandResult,
   } from '$lib/stores/websocket.svelte';
   import { loadSettings, getCompanionName } from '$lib/stores/settings.svelte';
   import type { Message } from '@resonant/shared';
@@ -57,6 +59,7 @@
   let isStreamingNow = $derived(isStreaming());
   let rateLimitInfo = $derived(getRateLimitInfo());
   let companionName = $derived(getCompanionName());
+  let commandResult = $derived(getLastCommandResult());
 
   // Canvas state
   let canvasDropdownOpen = $state(false);
@@ -437,6 +440,23 @@
       </div>
     {/if}
 
+    <!-- Command result toast -->
+    {#if commandResult && commandResult.display !== 'silent'}
+      <div class="command-toast" class:error={!commandResult.success}>
+        <span class="command-toast-name">/{commandResult.name}</span>
+        <span class="command-toast-msg">
+          {#if commandResult.error}
+            {commandResult.error}
+          {:else if commandResult.data?.message}
+            {commandResult.data.message}
+          {:else}
+            Done
+          {/if}
+        </span>
+        <button class="command-toast-close" onclick={() => clearCommandResult()}>x</button>
+      </div>
+    {/if}
+
     <!-- Messages area -->
     <div
       class="messages-container"
@@ -532,6 +552,7 @@
     <MessageInput
       replyTo={replyTo}
       isStreaming={isStreamingNow}
+      activeThreadId={activeThreadId}
       onbatchsend={handleBatchSend}
       oncancelreply={handleCancelReply}
       onstop={sendStopGeneration}
@@ -761,6 +782,51 @@
     font-size: 0.8125rem;
     flex-shrink: 0;
     animation: bannerFadeIn 0.3s ease-out;
+  }
+
+  .command-toast {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: var(--gold-glow, rgba(94, 171, 165, 0.1));
+    border-bottom: 1px solid rgba(94, 171, 165, 0.2);
+    color: var(--gold);
+    font-size: 0.8125rem;
+    flex-shrink: 0;
+    animation: bannerFadeIn 0.3s ease-out;
+  }
+
+  .command-toast.error {
+    background: rgba(239, 68, 68, 0.08);
+    border-bottom-color: rgba(239, 68, 68, 0.2);
+    color: var(--error, #ef4444);
+  }
+
+  .command-toast-name {
+    font-family: var(--font-mono);
+    font-weight: 500;
+    flex-shrink: 0;
+  }
+
+  .command-toast-msg {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .command-toast-close {
+    padding: 0.125rem 0.375rem;
+    color: inherit;
+    opacity: 0.6;
+    font-size: 0.75rem;
+    flex-shrink: 0;
+  }
+
+  .command-toast-close:hover {
+    opacity: 1;
   }
 
   .messages-container {
