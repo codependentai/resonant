@@ -440,23 +440,6 @@
       </div>
     {/if}
 
-    <!-- Command result toast -->
-    {#if commandResult && commandResult.display !== 'silent'}
-      <div class="command-toast" class:error={!commandResult.success}>
-        <span class="command-toast-name">/{commandResult.name}</span>
-        <span class="command-toast-msg">
-          {#if commandResult.error}
-            {commandResult.error}
-          {:else if commandResult.data?.message}
-            {commandResult.data.message}
-          {:else}
-            Done
-          {/if}
-        </span>
-        <button class="command-toast-close" onclick={() => clearCommandResult()}>x</button>
-      </div>
-    {/if}
-
     <!-- Messages area -->
     <div
       class="messages-container"

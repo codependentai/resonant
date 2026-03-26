@@ -261,6 +261,10 @@ export class AgentService {
     return cachedMcpStatus;
   }
 
+  getContextUsage(): { tokensUsed: number; contextWindow: number } {
+    return { tokensUsed: contextTokensUsed, contextWindow: contextWindowSize };
+  }
+
   stopGeneration(): boolean {
     if (activeAbortController) {
       activeAbortController.abort();

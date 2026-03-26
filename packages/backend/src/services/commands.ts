@@ -1,6 +1,7 @@
-// Command system — registry, dispatch, and handlers for slash commands
+// Command system — registry for the dropdown, handlers for UI-only commands.
+// Skills, custom commands, /compact, /clear all pass through to the Agent SDK as prompt text.
 
-import { readFileSync, existsSync, readdirSync } from 'fs';
+import { existsSync, readdirSync, readFileSync } from 'fs';
 import { join } from 'path';
 import crypto from 'crypto';
 import type { CommandRegistryEntry, ServerMessage } from '@resonant/shared';
@@ -22,39 +23,37 @@ import { getResonantConfig } from '../config.js';
 import type { ConnectionRegistry } from '../types.js';
 
 // ---------------------------------------------------------------------------
-// Built-in command definitions
+// UI-only commands (we handle, never touch the agent)
 // ---------------------------------------------------------------------------
 
-const BUILTIN_COMMANDS: CommandRegistryEntry[] = [
-  { name: 'compact', description: 'Force context compaction on current session', category: 'builtin' },
-  { name: 'clear', description: 'Start a fresh session on the current thread', category: 'builtin' },
+const UI_COMMANDS: CommandRegistryEntry[] = [
   { name: 'new', description: 'Create a new named thread', category: 'builtin', args: '[name]' },
   { name: 'rename', description: 'Rename the current thread', category: 'builtin', args: '[name]' },
   { name: 'model', description: 'Switch the active model', category: 'builtin', args: '[model]' },
-  { name: 'status', description: 'Show system status — MCP, session, connection', category: 'builtin' },
-  { name: 'cost', description: 'Show token usage for the current session', category: 'builtin' },
-  { name: 'stop', description: 'Stop the current generation', category: 'builtin', clientOnly: true },
-  { name: 'retry', description: 'Retry the last user message', category: 'builtin' },
-  { name: 'help', description: 'Show all available commands', category: 'builtin', clientOnly: true },
-  { name: 'mcp', description: 'Show MCP server status', category: 'builtin' },
+  { name: 'status', description: 'System status — uptime, MCP, queue', category: 'builtin' },
+  { name: 'cost', description: 'Token usage for the current session', category: 'builtin' },
+  { name: 'mcp', description: 'MCP server connection status', category: 'builtin' },
   { name: 'triggers', description: 'List active triggers and watchers', category: 'builtin' },
+  { name: 'retry', description: 'Retry the last message', category: 'builtin' },
   { name: 'wake', description: 'Trigger a manual wake cycle', category: 'builtin', args: '[type]' },
+  { name: 'stop', description: 'Stop the current generation', category: 'builtin', clientOnly: true },
+  { name: 'help', description: 'Show all available commands', category: 'builtin', clientOnly: true },
+];
+
+// SDK-handled commands (listed in dropdown, passed straight through as prompt)
+const SDK_COMMANDS: CommandRegistryEntry[] = [
+  { name: 'compact', description: 'Compact the conversation context', category: 'builtin' },
+  { name: 'clear', description: 'Clear conversation and start fresh', category: 'builtin' },
 ];
 
 // ---------------------------------------------------------------------------
-// Custom command scanning
+// Custom command scanning (for dropdown discovery only)
 // ---------------------------------------------------------------------------
 
-interface CustomCommandInfo {
-  name: string;
-  description: string;
-  path: string;
-}
-
-let customCommandCache: { commands: CustomCommandInfo[]; scannedAt: number } | null = null;
+let customCommandCache: { commands: { name: string; description: string }[]; scannedAt: number } | null = null;
 const CACHE_MS = 60 * 1000;
 
-function scanCustomCommands(): CustomCommandInfo[] {
+function scanCustomCommands(): { name: string; description: string }[] {
   const config = getResonantConfig();
   const commandsDir = join(config.agent.cwd, '.claude', 'commands');
 
@@ -66,23 +65,14 @@ function scanCustomCommands(): CustomCommandInfo[] {
     if (!existsSync(commandsDir)) return [];
 
     const entries = readdirSync(commandsDir).filter(f => f.endsWith('.md'));
-    const commands: CustomCommandInfo[] = [];
+    const commands: { name: string; description: string }[] = [];
 
     for (const filename of entries) {
-      const filePath = join(commandsDir, filename);
-      const content = readFileSync(filePath, 'utf-8');
-      const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/);
-      if (!frontmatterMatch) continue;
-
-      const fm = frontmatterMatch[1];
-      const nameMatch = fm.match(/^name:\s*(.+)$/m);
-      const descMatch = fm.match(/^description:\s*(.+)$/m);
-
-      commands.push({
-        name: nameMatch ? nameMatch[1].trim() : filename.replace('.md', ''),
-        description: descMatch ? descMatch[1].trim() : '',
-        path: filePath.replace(/\\/g, '/'),
-      });
+      const content = readFileSync(join(commandsDir, filename), 'utf-8');
+      const fm = content.match(/^---\n([\s\S]*?)\n---/)?.[1] || '';
+      const name = fm.match(/^name:\s*(.+)$/m)?.[1]?.trim() || filename.replace('.md', '');
+      const desc = fm.match(/^description:\s*(.+)$/m)?.[1]?.trim() || '';
+      commands.push({ name, description: desc });
     }
 
     customCommandCache = { commands, scannedAt: Date.now() };
@@ -93,28 +83,23 @@ function scanCustomCommands(): CustomCommandInfo[] {
 }
 
 // ---------------------------------------------------------------------------
-// Registry builder
+// Registry builder (populates the dropdown)
 // ---------------------------------------------------------------------------
 
 export function buildCommandRegistry(): CommandRegistryEntry[] {
-  const registry: CommandRegistryEntry[] = [...BUILTIN_COMMANDS];
+  const registry: CommandRegistryEntry[] = [...UI_COMMANDS, ...SDK_COMMANDS];
 
-  // Add skills
-  const skills = scanSkills();
-  for (const skill of skills) {
+  for (const skill of scanSkills()) {
     registry.push({
       name: skill.dirName,
       description: skill.description.length > 120
         ? skill.description.substring(0, 120) + '...'
         : skill.description,
       category: 'skill',
-      args: '[query]',
     });
   }
 
-  // Add custom commands
-  const customs = scanCustomCommands();
-  for (const cmd of customs) {
+  for (const cmd of scanCustomCommands()) {
     registry.push({
       name: cmd.name,
       description: cmd.description.length > 120
@@ -137,6 +122,8 @@ export interface CommandServices {
   registry: ConnectionRegistry;
 }
 
+const UI_COMMAND_NAMES = new Set(UI_COMMANDS.filter(c => !c.clientOnly).map(c => c.name));
+
 export async function handleCommand(
   name: string,
   args: string | undefined,
@@ -144,22 +131,35 @@ export async function handleCommand(
   services: CommandServices,
 ): Promise<ServerMessage> {
   try {
-    switch (name) {
-      case 'compact': return await handleCompact(threadId, services);
-      case 'clear': return await handleClear(threadId, services);
-      case 'new': return handleNew(args);
-      case 'rename': return handleRename(threadId, args);
-      case 'model': return handleModel(args);
-      case 'status': return await handleStatus(services);
-      case 'cost': return handleCost();
-      case 'retry': return await handleRetry(threadId, services);
-      case 'mcp': return handleMcp(services);
-      case 'triggers': return handleTriggers();
-      case 'wake': return await handleWake(args, services);
-      default:
-        // Check if it's a skill command
-        return await handleSkillOrCustom(name, args, threadId, services);
+    if (UI_COMMAND_NAMES.has(name)) {
+      switch (name) {
+        case 'new': return handleNew(args);
+        case 'rename': return handleRename(threadId, args);
+        case 'model': return handleModel(args);
+        case 'status': return await handleStatus(services);
+        case 'cost': return handleCost(services);
+        case 'mcp': return handleMcp(services);
+        case 'triggers': return handleTriggers();
+        case 'retry': return await handleRetry(threadId, services);
+        case 'wake': return await handleWake(args, services);
+      }
     }
+
+    // Everything else — pass through to the Agent SDK as prompt text
+    if (!threadId) {
+      return { type: 'command_result', name, success: false, error: 'No active thread', display: 'toast' };
+    }
+
+    const prompt = args ? `/${name} ${args}` : `/${name}`;
+    const thread = getThread(threadId);
+    await services.agent.processMessage(
+      threadId,
+      prompt,
+      thread ? { name: thread.name, type: thread.type } : undefined,
+      { platform: 'web' },
+    );
+
+    return { type: 'command_result', name, success: true, display: 'silent' };
   } catch (err) {
     return {
       type: 'command_result',
@@ -172,42 +172,8 @@ export async function handleCommand(
 }
 
 // ---------------------------------------------------------------------------
-// Built-in handlers
+// UI command handlers
 // ---------------------------------------------------------------------------
-
-async function handleCompact(threadId: string | undefined, services: CommandServices): Promise<ServerMessage> {
-  if (!threadId) {
-    return { type: 'command_result', name: 'compact', success: false, error: 'No active thread', display: 'toast' };
-  }
-
-  // Send a compaction-triggering message through the agent
-  await services.agent.processMessage(
-    threadId,
-    '/compact — User requested context compaction. Please compact the conversation context now.',
-    undefined,
-    { platform: 'web' },
-  );
-
-  return { type: 'command_result', name: 'compact', success: true, display: 'silent' };
-}
-
-async function handleClear(threadId: string | undefined, services: CommandServices): Promise<ServerMessage> {
-  if (!threadId) {
-    return { type: 'command_result', name: 'clear', success: false, error: 'No active thread', display: 'toast' };
-  }
-
-  // Clear session ID so next message starts fresh
-  const db = getDb();
-  db.prepare('UPDATE threads SET current_session_id = NULL, needs_reground = 1 WHERE id = ?').run(threadId);
-
-  return {
-    type: 'command_result',
-    name: 'clear',
-    success: true,
-    data: { message: 'Session cleared. Next message starts a fresh session.' },
-    display: 'toast',
-  };
-}
 
 function handleNew(args: string | undefined): ServerMessage {
   const name = args?.trim();
@@ -226,7 +192,7 @@ function handleNew(args: string | undefined): ServerMessage {
     type: 'command_result',
     name: 'new',
     success: true,
-    data: { threadId: thread.id, threadName: thread.name },
+    data: { threadId: thread.id, message: `Thread "${thread.name}" created` },
     display: 'toast',
   };
 }
@@ -245,14 +211,13 @@ function handleRename(threadId: string | undefined, args: string | undefined): S
     return { type: 'command_result', name: 'rename', success: false, error: 'Thread not found', display: 'toast' };
   }
 
-  const db = getDb();
-  db.prepare('UPDATE threads SET name = ? WHERE id = ?').run(newName, threadId);
+  getDb().prepare('UPDATE threads SET name = ? WHERE id = ?').run(newName, threadId);
 
   return {
     type: 'command_result',
     name: 'rename',
     success: true,
-    data: { threadId, oldName: thread.name, newName },
+    data: { message: `Renamed "${thread.name}" to "${newName}"` },
     display: 'toast',
   };
 }
@@ -265,7 +230,7 @@ function handleModel(args: string | undefined): ServerMessage {
       type: 'command_result',
       name: 'model',
       success: true,
-      data: { currentModel: current },
+      data: { message: `Current model: ${current}` },
       display: 'toast',
     };
   }
@@ -276,7 +241,7 @@ function handleModel(args: string | undefined): ServerMessage {
     type: 'command_result',
     name: 'model',
     success: true,
-    data: { model: modelId, message: `Model switched to ${modelId}` },
+    data: { message: `Model switched to ${modelId}` },
     display: 'toast',
   };
 }
@@ -285,41 +250,74 @@ async function handleStatus(services: CommandServices): Promise<ServerMessage> {
   const mem = process.memoryUsage();
   const orchestratorTasks = services.orchestrator ? await services.orchestrator.getStatus() : [];
   const mcpServers = services.agent.getMcpStatus();
+  const uptimeH = Math.floor(process.uptime() / 3600);
+  const uptimeM = Math.floor((process.uptime() % 3600) / 60);
+  const connected = mcpServers.filter(s => s.status === 'connected').length;
+  const usage = services.agent.getContextUsage();
+
+  const message = [
+    `Uptime: ${uptimeH}h ${uptimeM}m`,
+    `Mem: ${Math.round(mem.heapUsed / 1024 / 1024)}MB`,
+    `Presence: ${services.agent.getPresenceStatus()}`,
+    `MCP: ${connected}/${mcpServers.length}`,
+    `Tokens: ${usage.tokensUsed > 0 ? `${usage.tokensUsed.toLocaleString()}/${usage.contextWindow.toLocaleString()}` : 'no session'}`,
+    `Queue: ${services.agent.getQueueDepth()}`,
+    `Tasks: ${orchestratorTasks.length}`,
+  ].join(' | ');
 
   return {
     type: 'command_result',
     name: 'status',
     success: true,
-    data: {
-      uptime: process.uptime(),
-      memoryMb: Math.round(mem.heapUsed / 1024 / 1024),
-      connections: services.registry.getCount(),
-      presence: services.agent.getPresenceStatus(),
-      processing: services.agent.isProcessing(),
-      queueDepth: services.agent.getQueueDepth(),
-      mcpServers: mcpServers.map(s => ({ name: s.name, status: s.status, tools: s.toolCount })),
-      orchestratorTasks: orchestratorTasks.length,
-    },
-    display: 'panel',
+    data: { message },
+    display: 'toast',
   };
 }
 
-function handleCost(): ServerMessage {
-  // Pull session cost tracking from config (agent.ts stores these)
-  const tokensUsed = getConfig('session.tokens_used');
-  const costUsd = getConfig('session.cost_usd');
+function handleCost(services: CommandServices): ServerMessage {
+  const usage = services.agent.getContextUsage();
+
+  const message = usage.tokensUsed > 0
+    ? `Tokens: ${usage.tokensUsed.toLocaleString()} / ${usage.contextWindow.toLocaleString()} (${Math.round((usage.tokensUsed / usage.contextWindow) * 100)}%)`
+    : 'No active session — send a message first to start tracking';
 
   return {
     type: 'command_result',
     name: 'cost',
     success: true,
-    data: {
-      tokensUsed: tokensUsed ? parseInt(tokensUsed, 10) : 0,
-      costUsd: costUsd ? parseFloat(costUsd) : 0,
-      message: tokensUsed
-        ? `Tokens: ${parseInt(tokensUsed, 10).toLocaleString()} | Cost: $${parseFloat(costUsd || '0').toFixed(4)}`
-        : 'No token usage tracked for this session',
-    },
+    data: { message },
+    display: 'toast',
+  };
+}
+
+function handleMcp(services: CommandServices): ServerMessage {
+  const servers = services.agent.getMcpStatus();
+  const lines = servers.map(s => {
+    const icon = s.status === 'connected' ? 'ok' : s.status;
+    return `${s.name}: ${icon} (${s.toolCount} tools)`;
+  });
+
+  return {
+    type: 'command_result',
+    name: 'mcp',
+    success: true,
+    data: { message: lines.join(' | ') || 'No MCP servers configured' },
+    display: 'toast',
+  };
+}
+
+function handleTriggers(): ServerMessage {
+  const active = getActiveTriggers();
+  const all = listTriggers();
+  const message = all.length === 0
+    ? 'No triggers set'
+    : `${active.length} active / ${all.length} total — ${all.map(t => `${t.label} (${t.kind}, ${t.status})`).join(', ')}`;
+
+  return {
+    type: 'command_result',
+    name: 'triggers',
+    success: true,
+    data: { message },
     display: 'toast',
   };
 }
@@ -329,16 +327,13 @@ async function handleRetry(threadId: string | undefined, services: CommandServic
     return { type: 'command_result', name: 'retry', success: false, error: 'No active thread', display: 'toast' };
   }
 
-  // Get recent messages and find the last user message
-  const messages = getMessages({ threadId, limit: 20 });
-  const lastUserMsg = [...messages].reverse().find(m => m.role === 'user');
-
+  const msgs = getMessages({ threadId, limit: 20 });
+  const lastUserMsg = [...msgs].reverse().find(m => m.role === 'user');
   if (!lastUserMsg) {
-    return { type: 'command_result', name: 'retry', success: false, error: 'No user message found to retry', display: 'toast' };
+    return { type: 'command_result', name: 'retry', success: false, error: 'No message found to retry', display: 'toast' };
   }
 
   const thread = getThread(threadId);
-  // Re-send through agent
   await services.agent.processMessage(
     threadId,
     lastUserMsg.content,
@@ -347,49 +342,6 @@ async function handleRetry(threadId: string | undefined, services: CommandServic
   );
 
   return { type: 'command_result', name: 'retry', success: true, display: 'silent' };
-}
-
-function handleMcp(services: CommandServices): ServerMessage {
-  const servers = services.agent.getMcpStatus();
-
-  return {
-    type: 'command_result',
-    name: 'mcp',
-    success: true,
-    data: {
-      servers: servers.map(s => ({
-        name: s.name,
-        status: s.status,
-        error: s.error,
-        toolCount: s.toolCount,
-        tools: s.tools?.map(t => t.name),
-      })),
-    },
-    display: 'panel',
-  };
-}
-
-function handleTriggers(): ServerMessage {
-  const active = getActiveTriggers();
-  const all = listTriggers();
-
-  return {
-    type: 'command_result',
-    name: 'triggers',
-    success: true,
-    data: {
-      active: active.length,
-      total: all.length,
-      triggers: all.map(t => ({
-        id: t.id,
-        kind: t.kind,
-        label: t.label,
-        status: t.status,
-        createdAt: t.created_at,
-      })),
-    },
-    display: 'panel',
-  };
 }
 
 async function handleWake(args: string | undefined, services: CommandServices): Promise<ServerMessage> {
@@ -404,70 +356,7 @@ async function handleWake(args: string | undefined, services: CommandServices): 
     type: 'command_result',
     name: 'wake',
     success: true,
-    data: { wakeType, message: `Wake cycle triggered (${wakeType})` },
-    display: 'toast',
-  };
-}
-
-// ---------------------------------------------------------------------------
-// Skill & custom command handler
-// ---------------------------------------------------------------------------
-
-async function handleSkillOrCustom(
-  name: string,
-  args: string | undefined,
-  threadId: string | undefined,
-  services: CommandServices,
-): Promise<ServerMessage> {
-  if (!threadId) {
-    return { type: 'command_result', name, success: false, error: 'No active thread', display: 'toast' };
-  }
-
-  // Try skill first
-  const skills = scanSkills();
-  const skill = skills.find(s => s.dirName === name || s.name === name);
-
-  if (skill) {
-    const content = readFileSync(skill.path, 'utf-8');
-    const userText = args?.trim() || 'Invoke this skill';
-    const enrichedPrompt = `[SKILL: ${skill.name}]\n${content}\n[/SKILL]\n\nUser request: ${userText}`;
-
-    const thread = getThread(threadId);
-    await services.agent.processMessage(
-      threadId,
-      enrichedPrompt,
-      thread ? { name: thread.name, type: thread.type } : undefined,
-      { platform: 'web' },
-    );
-
-    return { type: 'command_result', name, success: true, display: 'silent' };
-  }
-
-  // Try custom command
-  const customs = scanCustomCommands();
-  const custom = customs.find(c => c.name === name);
-
-  if (custom) {
-    const content = readFileSync(custom.path, 'utf-8');
-    const userText = args?.trim() || 'Execute this command';
-    const enrichedPrompt = `[COMMAND: ${custom.name}]\n${content}\n[/COMMAND]\n\nUser request: ${userText}`;
-
-    const thread = getThread(threadId);
-    await services.agent.processMessage(
-      threadId,
-      enrichedPrompt,
-      thread ? { name: thread.name, type: thread.type } : undefined,
-      { platform: 'web' },
-    );
-
-    return { type: 'command_result', name, success: true, display: 'silent' };
-  }
-
-  return {
-    type: 'command_result',
-    name,
-    success: false,
-    error: `Unknown command: /${name}`,
+    data: { message: `Wake cycle triggered (${wakeType})` },
     display: 'toast',
   };
 }

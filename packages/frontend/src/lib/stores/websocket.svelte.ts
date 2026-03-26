@@ -495,10 +495,27 @@ function handleMessage(event: MessageEvent) {
 
       case 'command_result':
         lastCommandResult = { name: msg.name, success: msg.success, data: msg.data, error: msg.error, display: msg.display };
-        // Auto-clear non-silent results after 5 seconds
-        if (msg.display !== 'silent') {
-          if (commandResultTimeout) clearTimeout(commandResultTimeout);
-          commandResultTimeout = setTimeout(() => { lastCommandResult = null; }, 5000);
+        // Inject as a system message in chat
+        if (msg.display !== 'silent' && activeThreadId) {
+          const text = msg.error
+            ? `/${msg.name}: ${msg.error}`
+            : (msg.data as Record<string, unknown>)?.message as string || `/${msg.name}: done`;
+          const sysMsg: Message = {
+            id: `cmd-${Date.now()}`,
+            thread_id: activeThreadId,
+            sequence: messages.length > 0 ? messages[messages.length - 1].sequence + 1 : 1,
+            role: 'system',
+            content: text,
+            content_type: 'text',
+            platform: 'web',
+            metadata: null,
+            reply_to_id: null,
+            created_at: new Date().toISOString(),
+            edited_at: null,
+            deleted_at: null,
+            read_at: null,
+          };
+          messages = [...messages, sysMsg];
         }
         break;
 
