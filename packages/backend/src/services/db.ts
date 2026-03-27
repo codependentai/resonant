@@ -138,6 +138,32 @@ export function initDb(dbPath: string): Database.Database {
   }
   db.exec('CREATE INDEX IF NOT EXISTS idx_session_history_thread_id ON session_history(thread_id)');
 
+  // Care tracker table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS care_entries (
+      id TEXT PRIMARY KEY,
+      date TEXT NOT NULL,
+      person TEXT NOT NULL DEFAULT 'user',
+      category TEXT NOT NULL,
+      value TEXT,
+      note TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_care_date_person ON care_entries(date, person)`);
+
+  // Planner tables
+  const plannerMigrationPath = join(__dirname, '../../migrations/004_planner.sql');
+  try {
+    const plannerSQL = readFileSync(plannerMigrationPath, 'utf-8');
+    db.exec(plannerSQL);
+  } catch {
+    // Migration file may not exist in all environments
+  }
+  // Add due_date to projects (migration for existing DBs)
+  try { db.exec(`ALTER TABLE planner_projects ADD COLUMN due_date TEXT DEFAULT NULL`); } catch {}
+
   return db;
 }
 
@@ -952,4 +978,188 @@ export function listTriggers(kind?: 'impulse' | 'watcher'): Trigger[] {
   }
   const stmt = getDb().prepare("SELECT * FROM triggers WHERE status != 'cancelled' ORDER BY created_at DESC");
   return stmt.all() as unknown as Trigger[];
+}
+
+// ─── Care Tracker ───
+
+export interface CareEntry {
+  id: string;
+  date: string;
+  person: string;
+  category: string;
+  value: string | null;
+  note: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export function upsertCareEntry(params: {
+  id: string;
+  date: string;
+  person: string;
+  category: string;
+  value?: string | null;
+  note?: string | null;
+}): CareEntry {
+  const now = new Date().toISOString();
+  getDb().prepare(`
+    INSERT INTO care_entries (id, date, person, category, value, note, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET value = excluded.value, note = excluded.note, updated_at = excluded.updated_at
+  `).run(params.id, params.date, params.person, params.category, params.value ?? null, params.note ?? null, now, now);
+  return getDb().prepare('SELECT * FROM care_entries WHERE id = ?').get(params.id) as unknown as CareEntry;
+}
+
+export function getCareEntries(date: string, person?: string): CareEntry[] {
+  if (person) {
+    return getDb().prepare('SELECT * FROM care_entries WHERE date = ? AND person = ? ORDER BY category').all(date, person) as unknown as CareEntry[];
+  }
+  return getDb().prepare('SELECT * FROM care_entries WHERE date = ? ORDER BY person, category').all(date) as unknown as CareEntry[];
+}
+
+export function getCareHistory(person: string, days: number = 7): CareEntry[] {
+  const since = new Date();
+  since.setDate(since.getDate() - days);
+  const sinceStr = since.toISOString().split('T')[0];
+  return getDb().prepare('SELECT * FROM care_entries WHERE person = ? AND date >= ? ORDER BY date DESC, category').all(person, sinceStr) as unknown as CareEntry[];
+}
+
+export function deleteCareEntry(id: string): boolean {
+  const result = getDb().prepare('DELETE FROM care_entries WHERE id = ?').run(id);
+  return result.changes > 0;
+}
+
+// ─── Planner ───
+
+export interface PlannerTask {
+  id: string;
+  date: string;
+  person: string;
+  title: string;
+  completed: number;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PlannerSchedule {
+  id: string;
+  date: string;
+  time: string;
+  title: string;
+  note: string | null;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PlannerProject {
+  id: string;
+  title: string;
+  person: string;
+  status: string;
+  note: string | null;
+  due_date: string | null;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+// Tasks — with carry-forward (incomplete tasks from last 3 days)
+export function getPlannerTasks(date: string, person?: string): PlannerTask[] {
+  // Include tasks for the requested date PLUS incomplete tasks from the last 3 days
+  // Deduplicate: skip carried-forward tasks whose title already exists on the requested date
+  const since = new Date(date + 'T00:00:00');
+  since.setDate(since.getDate() - 3);
+  const sinceStr = since.toISOString().split('T')[0];
+
+  let allTasks: PlannerTask[];
+  if (person) {
+    allTasks = getDb().prepare(
+      `SELECT * FROM planner_tasks WHERE ((date = ?) OR (date >= ? AND date < ? AND completed = 0)) AND person = ? ORDER BY sort_order, created_at`
+    ).all(date, sinceStr, date, person) as unknown as PlannerTask[];
+  } else {
+    allTasks = getDb().prepare(
+      `SELECT * FROM planner_tasks WHERE (date = ?) OR (date >= ? AND date < ? AND completed = 0) ORDER BY sort_order, created_at`
+    ).all(date, sinceStr, date) as unknown as PlannerTask[];
+  }
+
+  // Deduplicate: if a task title exists on the requested date, skip any older carried-forward version
+  const todayTitles = new Set(allTasks.filter(t => t.date === date).map(t => t.title.toLowerCase()));
+  return allTasks.filter(t => t.date === date || !todayTitles.has(t.title.toLowerCase()));
+}
+
+export function createPlannerTask(params: { id: string; date: string; title: string; person?: string; sort_order?: number }): PlannerTask {
+  const now = new Date().toISOString();
+  getDb().prepare(`
+    INSERT INTO planner_tasks (id, date, title, person, sort_order, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(params.id, params.date, params.title, params.person || 'user', params.sort_order ?? 0, now, now);
+  return getDb().prepare('SELECT * FROM planner_tasks WHERE id = ?').get(params.id) as unknown as PlannerTask;
+}
+
+export function updatePlannerTask(id: string, updates: { title?: string; completed?: number; sort_order?: number }): PlannerTask | null {
+  const now = new Date().toISOString();
+  const sets: string[] = ['updated_at = ?'];
+  const vals: unknown[] = [now];
+  if (updates.title !== undefined) { sets.push('title = ?'); vals.push(updates.title); }
+  if (updates.completed !== undefined) { sets.push('completed = ?'); vals.push(updates.completed); }
+  if (updates.sort_order !== undefined) { sets.push('sort_order = ?'); vals.push(updates.sort_order); }
+  vals.push(id);
+  getDb().prepare(`UPDATE planner_tasks SET ${sets.join(', ')} WHERE id = ?`).run(...vals);
+  return getDb().prepare('SELECT * FROM planner_tasks WHERE id = ?').get(id) as unknown as PlannerTask | null;
+}
+
+export function deletePlannerTask(id: string): boolean {
+  return getDb().prepare('DELETE FROM planner_tasks WHERE id = ?').run(id).changes > 0;
+}
+
+// Schedule
+export function getPlannerSchedule(date: string): PlannerSchedule[] {
+  return getDb().prepare('SELECT * FROM planner_schedule WHERE date = ? ORDER BY time, sort_order').all(date) as unknown as PlannerSchedule[];
+}
+
+export function createPlannerSchedule(params: { id: string; date: string; time: string; title: string; note?: string }): PlannerSchedule {
+  const now = new Date().toISOString();
+  getDb().prepare(`
+    INSERT INTO planner_schedule (id, date, time, title, note, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(params.id, params.date, params.time, params.title, params.note || null, now, now);
+  return getDb().prepare('SELECT * FROM planner_schedule WHERE id = ?').get(params.id) as unknown as PlannerSchedule;
+}
+
+// Projects
+export function getPlannerProjects(status?: string): PlannerProject[] {
+  if (status) {
+    return getDb().prepare('SELECT * FROM planner_projects WHERE status = ? ORDER BY sort_order, created_at').all(status) as unknown as PlannerProject[];
+  }
+  return getDb().prepare('SELECT * FROM planner_projects ORDER BY sort_order, created_at').all() as unknown as PlannerProject[];
+}
+
+export function createPlannerProject(params: { id: string; title: string; person?: string; note?: string; due_date?: string; sort_order?: number }): PlannerProject {
+  const now = new Date().toISOString();
+  getDb().prepare(`
+    INSERT INTO planner_projects (id, title, person, note, due_date, sort_order, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(params.id, params.title, params.person || 'both', params.note || null, params.due_date || null, params.sort_order ?? 0, now, now);
+  return getDb().prepare('SELECT * FROM planner_projects WHERE id = ?').get(params.id) as unknown as PlannerProject;
+}
+
+export function updatePlannerProject(id: string, updates: { title?: string; status?: string; note?: string; person?: string; due_date?: string | null; sort_order?: number }): PlannerProject | null {
+  const now = new Date().toISOString();
+  const sets: string[] = ['updated_at = ?'];
+  const vals: unknown[] = [now];
+  if (updates.title !== undefined) { sets.push('title = ?'); vals.push(updates.title); }
+  if (updates.status !== undefined) { sets.push('status = ?'); vals.push(updates.status); }
+  if (updates.note !== undefined) { sets.push('note = ?'); vals.push(updates.note); }
+  if (updates.person !== undefined) { sets.push('person = ?'); vals.push(updates.person); }
+  if (updates.due_date !== undefined) { sets.push('due_date = ?'); vals.push(updates.due_date); }
+  if (updates.sort_order !== undefined) { sets.push('sort_order = ?'); vals.push(updates.sort_order); }
+  vals.push(id);
+  getDb().prepare(`UPDATE planner_projects SET ${sets.join(', ')} WHERE id = ?`).run(...vals);
+  return getDb().prepare('SELECT * FROM planner_projects WHERE id = ?').get(id) as unknown as PlannerProject | null;
+}
+
+export function deletePlannerProject(id: string): boolean {
+  return getDb().prepare('DELETE FROM planner_projects WHERE id = ?').run(id).changes > 0;
 }

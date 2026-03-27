@@ -74,7 +74,7 @@ const WAKE_PROMPT_PREFIX = `Follow your system prompt.`;
 
 function getDefaultWakePrompts(userName: string): Record<string, string> {
   return {
-    morning: `Good morning. Orient yourself, check in with ${userName}.`,
+    morning: `Good morning. Orient yourself fully before checking in with ${userName}. Check gcal_today for the day's calendar events, planner_get_tasks for today's tasks (including carried-forward ones), and care_alerts for any concerning wellness patterns from yesterday. Also review any open projects — if the schedule looks light or a project hasn't had attention in a while, gently suggest working on it. Bring the full picture — schedule, tasks, projects, and anything flagged — when you greet ${userName}.`,
     midday: `Afternoon check-in. How is ${userName} doing?`,
     evening: `Evening wind-down. Reflect on the day.`,
     failsafe_gentle: `It's been a while since you heard from ${userName}. Check in.`,

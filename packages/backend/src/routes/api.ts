@@ -43,6 +43,21 @@ import {
   saveEmbedding,
   getEmbeddingCount,
   getMessageContext,
+  upsertCareEntry,
+  getCareEntries,
+  getCareHistory,
+  deleteCareEntry,
+  getPlannerTasks,
+  createPlannerTask,
+  updatePlannerTask,
+  deletePlannerTask,
+  getPlannerSchedule,
+  createPlannerSchedule,
+  getPlannerProjects,
+  createPlannerProject,
+  updatePlannerProject,
+  deletePlannerProject,
+  getConfig,
 } from '../services/db.js';
 import type { TriggerCondition } from '../services/db.js';
 import {
@@ -2117,6 +2132,216 @@ router.delete('/discord/rules/user/:id', (req, res) => {
   } catch (error) {
     console.error('Error deleting user rule:', error);
     res.status(500).json({ error: 'Failed to delete user rule' });
+  }
+});
+
+// ─── Status ───
+
+router.get('/status', (req, res) => {
+  const emoji = getConfig('user_status_emoji') || '';
+  const label = getConfig('user_status_label') || '';
+  const setAt = getConfig('user_status_set_at') || '';
+  res.json({ emoji, label, setAt });
+});
+
+router.post('/status', (req, res) => {
+  const { emoji, label } = req.body;
+  if (emoji) {
+    setConfig('user_status_emoji', emoji);
+    setConfig('user_status_label', label || '');
+    setConfig('user_status_set_at', new Date().toISOString());
+  } else {
+    setConfig('user_status_emoji', '');
+    setConfig('user_status_label', '');
+    setConfig('user_status_set_at', '');
+  }
+  res.json({ ok: true, emoji: getConfig('user_status_emoji'), label: getConfig('user_status_label') });
+});
+
+// ─── Care Tracker ───
+
+router.get('/care', (req, res) => {
+  try {
+    const { date, person } = req.query;
+    const d = (date as string) || new Date().toISOString().split('T')[0];
+    const entries = getCareEntries(d, person as string | undefined);
+    res.json(entries);
+  } catch (error) {
+    console.error('Error reading care entries:', error);
+    res.status(500).json({ error: 'Failed to read care entries' });
+  }
+});
+
+router.get('/care/history', (req, res) => {
+  try {
+    const { person, days } = req.query;
+    if (!person) { res.status(400).json({ error: 'Missing person parameter' }); return; }
+    const entries = getCareHistory(person as string, days ? parseInt(days as string) : 7);
+    res.json(entries);
+  } catch (error) {
+    console.error('Error reading care history:', error);
+    res.status(500).json({ error: 'Failed to read care history' });
+  }
+});
+
+router.put('/care', (req, res) => {
+  try {
+    const { id, date, person, category, value, note } = req.body;
+    if (!id || !date || !person || !category) {
+      res.status(400).json({ error: 'Missing required fields: id, date, person, category' });
+      return;
+    }
+    const entry = upsertCareEntry({ id, date, person, category, value, note });
+    res.json(entry);
+  } catch (error) {
+    console.error('Error writing care entry:', error);
+    res.status(500).json({ error: 'Failed to write care entry' });
+  }
+});
+
+router.delete('/care/:id', (req, res) => {
+  try {
+    const deleted = deleteCareEntry(req.params.id);
+    if (!deleted) { res.status(404).json({ error: 'Entry not found' }); return; }
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Error deleting care entry:', error);
+    res.status(500).json({ error: 'Failed to delete care entry' });
+  }
+});
+
+// ─── Planner: Tasks ───
+
+router.get('/planner/tasks', (req, res) => {
+  try {
+    const { date, person } = req.query;
+    const d = (date as string) || new Date().toISOString().split('T')[0];
+    const tasks = getPlannerTasks(d, person as string | undefined);
+    res.json(tasks);
+  } catch (error) {
+    console.error('Error getting planner tasks:', error);
+    res.status(500).json({ error: 'Failed to get planner tasks' });
+  }
+});
+
+router.post('/planner/tasks', (req, res) => {
+  try {
+    const { date, title, person, sort_order } = req.body;
+    if (!date || !title) {
+      res.status(400).json({ error: 'Missing required fields: date, title' });
+      return;
+    }
+    const id = crypto.randomUUID();
+    const task = createPlannerTask({ id, date, title, person, sort_order });
+    res.json(task);
+  } catch (error) {
+    console.error('Error creating planner task:', error);
+    res.status(500).json({ error: 'Failed to create planner task' });
+  }
+});
+
+router.put('/planner/tasks/:id', (req, res) => {
+  try {
+    const { title, completed, sort_order } = req.body;
+    const task = updatePlannerTask(req.params.id, { title, completed, sort_order });
+    if (!task) { res.status(404).json({ error: 'Task not found' }); return; }
+    res.json(task);
+  } catch (error) {
+    console.error('Error updating planner task:', error);
+    res.status(500).json({ error: 'Failed to update planner task' });
+  }
+});
+
+router.delete('/planner/tasks/:id', (req, res) => {
+  try {
+    const deleted = deletePlannerTask(req.params.id);
+    if (!deleted) { res.status(404).json({ error: 'Task not found' }); return; }
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Error deleting planner task:', error);
+    res.status(500).json({ error: 'Failed to delete planner task' });
+  }
+});
+
+// ─── Planner: Schedule ───
+
+router.get('/planner/schedule', (req, res) => {
+  try {
+    const { date } = req.query;
+    const d = (date as string) || new Date().toISOString().split('T')[0];
+    const schedule = getPlannerSchedule(d);
+    res.json(schedule);
+  } catch (error) {
+    console.error('Error getting planner schedule:', error);
+    res.status(500).json({ error: 'Failed to get planner schedule' });
+  }
+});
+
+router.post('/planner/schedule', (req, res) => {
+  try {
+    const { date, time, title, note } = req.body;
+    if (!date || !time || !title) {
+      res.status(400).json({ error: 'Missing required fields: date, time, title' });
+      return;
+    }
+    const id = crypto.randomUUID();
+    const entry = createPlannerSchedule({ id, date, time, title, note });
+    res.json(entry);
+  } catch (error) {
+    console.error('Error creating planner schedule:', error);
+    res.status(500).json({ error: 'Failed to create planner schedule' });
+  }
+});
+
+// ─── Planner: Projects ───
+
+router.get('/planner/projects', (req, res) => {
+  try {
+    const { status } = req.query;
+    const projects = getPlannerProjects(status as string | undefined);
+    res.json(projects);
+  } catch (error) {
+    console.error('Error getting planner projects:', error);
+    res.status(500).json({ error: 'Failed to get planner projects' });
+  }
+});
+
+router.post('/planner/projects', (req, res) => {
+  try {
+    const { title, person, note, due_date, sort_order } = req.body;
+    if (!title) {
+      res.status(400).json({ error: 'Missing required field: title' });
+      return;
+    }
+    const id = crypto.randomUUID();
+    const project = createPlannerProject({ id, title, person, note, due_date, sort_order });
+    res.json(project);
+  } catch (error) {
+    console.error('Error creating planner project:', error);
+    res.status(500).json({ error: 'Failed to create planner project' });
+  }
+});
+
+router.put('/planner/projects/:id', (req, res) => {
+  try {
+    const { title, status, note, person, due_date, sort_order } = req.body;
+    const project = updatePlannerProject(req.params.id, { title, status, note, person, due_date, sort_order });
+    if (!project) { res.status(404).json({ error: 'Project not found' }); return; }
+    res.json(project);
+  } catch (error) {
+    console.error('Error updating planner project:', error);
+    res.status(500).json({ error: 'Failed to update planner project' });
+  }
+});
+
+router.delete('/planner/projects/:id', (req, res) => {
+  try {
+    const deleted = deletePlannerProject(req.params.id);
+    if (!deleted) { res.status(404).json({ error: 'Project not found' }); return; }
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Error deleting planner project:', error);
+    res.status(500).json({ error: 'Failed to delete planner project' });
   }
 });
 
