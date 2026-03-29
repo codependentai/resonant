@@ -2,6 +2,9 @@
   import type { Message } from '@resonant/shared';
   import VoiceRecorder from './VoiceRecorder.svelte';
   import VoiceModeToggle from './VoiceModeToggle.svelte';
+  import { getCompanionName } from '$lib/stores/settings.svelte';
+
+  let companionName = $derived(getCompanionName());
 
   interface FileUploadResult {
     fileId: string;
@@ -159,7 +162,7 @@
     <div class="reply-indicator">
       <div class="reply-bar"></div>
       <div class="reply-info">
-        <span class="replying-to">Replying to {replyTo.role === 'companion' ? 'Companion' : 'You'}</span>
+        <span class="replying-to">Replying to {replyTo.role === 'companion' ? companionName : 'You'}</span>
         <span class="reply-preview">{replyTo.content.substring(0, 100)}</span>
       </div>
       <button class="cancel-reply" onclick={handleCancelReply} aria-label="Cancel reply">

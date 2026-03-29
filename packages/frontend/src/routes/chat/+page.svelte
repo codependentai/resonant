@@ -36,7 +36,7 @@
     isStreaming,
     getRateLimitInfo,
   } from '$lib/stores/websocket.svelte';
-  import { loadSettings } from '$lib/stores/settings.svelte';
+  import { loadSettings, getCompanionName } from '$lib/stores/settings.svelte';
   import type { Message } from '@resonant/shared';
 
   // Reactive state from stores
@@ -56,6 +56,7 @@
   let streamingSegments = $derived(getStreamingSegments());
   let isStreamingNow = $derived(isStreaming());
   let rateLimitInfo = $derived(getRateLimitInfo());
+  let companionName = $derived(getCompanionName());
 
   // Canvas state
   let canvasDropdownOpen = $state(false);
@@ -345,7 +346,7 @@
       </button>
 
       <div class="header-info">
-        <h1 class="header-title">Companion</h1>
+        <h1 class="header-title">{companionName}</h1>
         <PresenceIndicator status={presence} />
         <ModelSelector />
       </div>
@@ -459,7 +460,7 @@
               class="message-wrapper"
               oncontextmenu={(e) => { e.preventDefault(); handleReply(message); }}
             >
-              <MessageBubble message={message} toolEvents={toolEventsMap[message.id] || []} segments={message.metadata?.segments as any || null} />
+              <MessageBubble message={message} toolEvents={toolEventsMap[message.id] || []} segments={message.metadata?.segments as any || null} {companionName} />
             </div>
           {/each}
 
@@ -489,6 +490,7 @@
                   streamTokens={streaming.tokens}
                   toolEvents={liveTools}
                   segments={streamingSegments}
+                  {companionName}
                 />
               {:else}
                 <!-- Live activity panel while companion is working -->
@@ -497,7 +499,7 @@
                     <span class="typing-dot"></span>
                     <span class="typing-dot"></span>
                     <span class="typing-dot"></span>
-                    <span class="activity-label">Companion is thinking...</span>
+                    <span class="activity-label">{companionName} is thinking...</span>
                   </div>
                   {#if liveTools.length > 0}
                     <div class="activity-tools">

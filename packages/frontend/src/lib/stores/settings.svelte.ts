@@ -8,18 +8,25 @@ let failsafe = $state<{ enabled: boolean; gentle: number; concerned: number; eme
 });
 let triggers = $state<TriggerStatus[]>([]);
 let orchestratorTasks = $state<OrchestratorTaskStatus[]>([]);
+let companionName = $state('Companion');
 let loading = $state(false);
 
 // Load settings + orchestrator status + failsafe via REST
 export async function loadSettings(): Promise<void> {
   loading = true;
   try {
-    const [configRes, orchRes, failsafeRes, triggersRes] = await Promise.all([
+    const [configRes, orchRes, failsafeRes, triggersRes, prefsRes] = await Promise.all([
       fetch('/api/settings', { credentials: 'include' }),
       fetch('/api/orchestrator/status', { credentials: 'include' }),
       fetch('/api/orchestrator/failsafe', { credentials: 'include' }),
       fetch('/api/orchestrator/triggers', { credentials: 'include' }),
+      fetch('/api/preferences', { credentials: 'include' }),
     ]);
+
+    if (prefsRes.ok) {
+      const prefs = await prefsRes.json();
+      if (prefs.identity?.companion_name) companionName = prefs.identity.companion_name;
+    }
 
     if (configRes.ok) {
       const data = await configRes.json();
@@ -173,4 +180,5 @@ export function getConfig() { return config; }
 export function getFailsafe() { return failsafe; }
 export function getTriggers() { return triggers; }
 export function getOrchestratorTasks() { return orchestratorTasks; }
+export function getCompanionName() { return companionName; }
 export function isLoading() { return loading; }

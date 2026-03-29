@@ -4,12 +4,13 @@
   import { send } from '$lib/stores/websocket.svelte';
   import { renderMarkdown } from '$lib/utils/markdown';
 
-  let { message, isStreaming = false, streamTokens = '', toolEvents = [], segments = null } = $props<{
+  let { message, isStreaming = false, streamTokens = '', toolEvents = [], segments = null, companionName = 'Companion' } = $props<{
     message: Message;
     isStreaming?: boolean;
     streamTokens?: string;
     toolEvents?: ToolEvent[];
     segments?: MessageSegment[] | null;
+    companionName?: string;
   }>();
 
   // Format timestamp
@@ -204,7 +205,7 @@
     aria-label="{message.role} message"
   >
     <div class="message-header">
-      <span class="role">{message.role === 'companion' ? 'Companion' : 'You'}</span>
+      <span class="role">{message.role === 'companion' ? companionName : 'You'}</span>
       <span class="time">{formatTime(message.created_at)}</span>
       {#if message.edited_at && !isDeleted}
         <span class="edited">(edited)</span>
