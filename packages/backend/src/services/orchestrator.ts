@@ -1,4 +1,4 @@
-import * as cron from 'node-cron';
+import { Cron } from 'croner';
 import crypto from 'crypto';
 import { appendFileSync, mkdirSync, existsSync, statSync, renameSync, unlinkSync, readFileSync } from 'fs';
 import { join, dirname } from 'path';
@@ -143,13 +143,24 @@ const DEFAULT_TASKS: TaskDefinition[] = [
 // --- Managed task interface ---
 
 interface ManagedTask {
-  task: cron.ScheduledTask;
+  task: Cron;
   cronExpr: string;
   handler: () => void | Promise<void>;
   wakeType: string;
   label: string;
   enabled: boolean;
   category: 'wake' | 'checkin' | 'handoff' | 'failsafe' | 'routine';
+}
+
+// Validate a cron expression without scheduling it
+function isValidCron(expr: string): boolean {
+  try {
+    const test = new Cron(expr, { paused: true });
+    test.stop();
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 // --- Default failsafe thresholds (minutes) ---
@@ -249,13 +260,9 @@ export class Orchestrator {
         this.handleWake(def.wakeType, { freshSession: def.freshSession });
       };
 
-      const task = cron.schedule(cronExpr, handler, {
-        timezone,
-      });
+      const task = new Cron(cronExpr, { timezone, paused: !enabled }, handler);
 
-      // node-cron v4 auto-starts tasks; stop if disabled in config
       if (!enabled) {
-        task.stop();
         olog(`  ${def.wakeType}: DISABLED (persisted)`);
       }
 
@@ -353,20 +360,16 @@ export class Orchestrator {
       let status: 'scheduled' | 'stopped' | 'running' = 'stopped';
       let nextRun: string | null = null;
 
-      try {
-        const cronStatus = await managed.task.getStatus();
-        status = cronStatus === 'scheduled' ? 'scheduled' :
-                 cronStatus === 'running' ? 'running' : 'stopped';
-      } catch {
+      if (managed.task.isStopped()) {
+        status = 'stopped';
+      } else if (managed.task.isBusy()) {
+        status = 'running';
+      } else {
         status = managed.enabled ? 'scheduled' : 'stopped';
       }
 
-      try {
-        const next = managed.task.getNextRun();
-        if (next) nextRun = next.toISOString();
-      } catch {
-        // Not available
-      }
+      const next = managed.task.nextRun();
+      if (next) nextRun = next.toISOString();
 
       statuses.push({
         wakeType: managed.wakeType,
@@ -386,7 +389,7 @@ export class Orchestrator {
     const managed = this.tasks.get(wakeType);
     if (!managed) return false;
 
-    managed.task.start();
+    managed.task.resume();
     managed.enabled = true;
     setConfig(`cron.${wakeType}.enabled`, 'true');
     olog(`ENABLED: ${wakeType}`);
@@ -397,7 +400,7 @@ export class Orchestrator {
     const managed = this.tasks.get(wakeType);
     if (!managed) return false;
 
-    managed.task.stop();
+    managed.task.pause();
     managed.enabled = false;
     setConfig(`cron.${wakeType}.enabled`, 'false');
     olog(`DISABLED: ${wakeType}`);
@@ -408,7 +411,7 @@ export class Orchestrator {
     const managed = this.tasks.get(wakeType);
     if (!managed) return false;
 
-    if (!cron.validate(newCronExpr)) {
+    if (!isValidCron(newCronExpr)) {
       olog(`RESCHEDULE FAILED: ${wakeType} — invalid cron expression: ${newCronExpr}`);
       return false;
     }
@@ -418,14 +421,7 @@ export class Orchestrator {
     // Destroy old task and create new one
     managed.task.stop();
 
-    const newTask = cron.schedule(newCronExpr, managed.handler, {
-      timezone: config.identity.timezone,
-    });
-
-    // Respect current enabled state
-    if (!managed.enabled) {
-      newTask.stop();
-    }
+    const newTask = new Cron(newCronExpr, { timezone: config.identity.timezone, paused: !managed.enabled }, managed.handler);
 
     managed.task = newTask;
     managed.cronExpr = newCronExpr;
@@ -488,7 +484,7 @@ export class Orchestrator {
       return false;
     }
 
-    if (!cron.validate(params.cronExpr)) {
+    if (!isValidCron(params.cronExpr)) {
       olog(`ADD ROUTINE FAILED: ${params.wakeType} — invalid cron: ${params.cronExpr}`);
       return false;
     }
@@ -498,9 +494,7 @@ export class Orchestrator {
       this.handleWake(params.wakeType);
     };
 
-    const task = cron.schedule(params.cronExpr, handler, {
-      timezone: config.identity.timezone,
-    });
+    const task = new Cron(params.cronExpr, { timezone: config.identity.timezone }, handler);
 
     this.tasks.set(params.wakeType, {
       task,
