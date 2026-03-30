@@ -259,10 +259,34 @@ This only needs to be done once. After that, `npm run build` and `npm start` wor
 - Open `resonant.yaml`, find the `password` line under `auth`, clear it
 - Restart Resonant
 
+## Command Center
+
+Resonant includes a built-in life management system at `/cc`. Enable it in `resonant.yaml`:
+
+```yaml
+command_center:
+  enabled: true
+  currency_symbol: "$"       # For the finances page
+  # default_person: "user"   # Default person for care tracking
+  # care_categories:         # Customize wellness categories
+  #   toggles: [breakfast, lunch, dinner, snacks, medication, movement, shower]
+  #   ratings: [sleep, energy, wellbeing, mood]
+  #   counters: [{name: water, max: 10}]
+```
+
+Once enabled, you get:
+- **Dashboard** at `/cc` — overview of your day
+- **Planner, Care, Calendar, Cycle, Pets, Lists, Finances, Stats** — accessible from the dashboard or the navigation menu
+- **12 MCP tools** — your companion can manage tasks, events, care entries, and more from chat (e.g., "add milk to the shopping list" or "how did I sleep this week?")
+- **Home icon** in the chat header links to the Command Center
+
+The database tables are created automatically on first startup.
+
 ## What's Next
 
 - **Voice:** Add ElevenLabs + Groq for voice conversations. See Settings > Preferences for setup instructions.
 - **Discord:** Connect your companion to Discord. See Settings > Preferences.
 - **Telegram:** Connect via Telegram bot. See Settings > Preferences.
-- **Themes:** Customize the look. See `examples/themes/README.md`.
+- **Slash Commands:** Type `/` in chat to browse available commands.
+- **Themes:** Customize the look — light mode is built in, or see `examples/themes/README.md` for custom themes.
 - **Context hooks:** Advanced context injection. See `docs/HOOKS.md`.
