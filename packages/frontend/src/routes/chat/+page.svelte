@@ -75,6 +75,7 @@
   let newThreadOpen = $state(false);
   let newThreadName = $state('');
   let creatingThread = $state(false);
+  let createError = $state('');
 
   function toggleSearch() {
     searchOpen = !searchOpen;
@@ -125,13 +126,17 @@
       if (!response.ok) throw new Error('Failed to create thread');
 
       const data = await response.json();
-      await loadThreads();
       newThreadOpen = false;
       newThreadName = '';
+      // Load thread list first, then select — even if WS is temporarily down,
+      // the HTTP-based thread load and selection will still work
+      await loadThreads();
       await handleThreadSelect(data.thread.id);
     } catch (err) {
       console.error('Failed to create thread:', err);
-      alert('Failed to create thread');
+      newThreadOpen = false;
+      createError = 'Failed to create thread. Please try again.';
+      setTimeout(() => createError = '', 5000);
     } finally {
       creatingThread = false;
     }
@@ -369,6 +374,9 @@
 </script>
 
 <div class="chat-page">
+  {#if createError}
+    <div class="toast-error" role="alert">{createError}</div>
+  {/if}
   <!-- Sidebar overlay on mobile -->
   {#if sidebarOpen}
     <button class="sidebar-overlay" onclick={toggleSidebar} aria-label="Close sidebar"></button>
@@ -552,6 +560,7 @@
                     role: 'companion',
                     content: streaming.tokens,
                     content_type: 'text',
+                    platform: 'web',
                     metadata: null,
                     reply_to_id: null,
                     reply_to_preview: null,
@@ -1326,5 +1335,24 @@
       opacity: 1;
       transform: translateY(0) scale(1);
     }
+  }
+
+  .toast-error {
+    position: fixed;
+    top: 1rem;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--error, #dc2626);
+    color: #fff;
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    z-index: 9999;
+    animation: toast-in 0.2s ease-out;
+  }
+
+  @keyframes toast-in {
+    from { opacity: 0; transform: translateX(-50%) translateY(-0.5rem); }
+    to { opacity: 1; transform: translateX(-50%) translateY(0); }
   }
 </style>

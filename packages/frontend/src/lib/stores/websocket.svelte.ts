@@ -657,9 +657,9 @@ export async function loadThread(threadId: string) {
       const last = messages[messages.length - 1];
       if (last.sequence > lastSeenSequence) lastSeenSequence = last.sequence;
     }
-    // Mark as read
+    // Mark as read (best-effort — don't block thread loading if WS is down)
     if (messages.length > 0) {
-      send({ type: 'read', threadId, beforeId: messages[messages.length - 1].id });
+      try { send({ type: 'read', threadId, beforeId: messages[messages.length - 1].id }); } catch {}
     }
   } catch (err) {
     console.error('Failed to load thread:', err);

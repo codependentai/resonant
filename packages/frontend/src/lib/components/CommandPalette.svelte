@@ -19,14 +19,14 @@
   // Group and filter commands
   let grouped = $derived.by(() => {
     const lower = filter.toLowerCase();
-    const filtered = commands.filter(c =>
+    const filtered = commands.filter((c: CommandRegistryEntry) =>
       c.name.toLowerCase().includes(lower) ||
       c.description.toLowerCase().includes(lower)
     );
 
-    const builtin = filtered.filter(c => c.category === 'builtin');
-    const skill = filtered.filter(c => c.category === 'skill');
-    const custom = filtered.filter(c => c.category === 'custom');
+    const builtin = filtered.filter((c: CommandRegistryEntry) => c.category === 'builtin');
+    const skill = filtered.filter((c: CommandRegistryEntry) => c.category === 'skill');
+    const custom = filtered.filter((c: CommandRegistryEntry) => c.category === 'custom');
 
     // Build flat list with group headers for keyboard nav
     const items: Array<{ type: 'header'; label: string } | { type: 'command'; command: CommandRegistryEntry }> = [];

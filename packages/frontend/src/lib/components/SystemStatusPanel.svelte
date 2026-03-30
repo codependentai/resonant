@@ -76,9 +76,9 @@
       </div>
 
       <div class="stat-card">
-        <span class="stat-label">Mary</span>
+        <span class="stat-label">User</span>
         <span class="stat-value">
-          {#if status.maryConnected}
+          {#if status.userConnected}
             <span class="presence-dot" style="background: var(--status-active)"></span>
             connected
           {:else}
