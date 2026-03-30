@@ -167,8 +167,8 @@
   }
 
   .mic-button:hover:not(:disabled) {
-    color: var(--gold-dim);
-    background: var(--gold-ember);
+    color: var(--text-secondary);
+    background: var(--bg-hover);
   }
 
   .mic-button.recording {
@@ -188,7 +188,7 @@
   .recording-duration {
     font-size: 0.8125rem;
     font-family: var(--font-mono, monospace);
-    color: #ef4444;
+    color: var(--text-secondary);
     min-width: 2.5rem;
   }
 
@@ -205,7 +205,7 @@
     width: 20px;
     height: 20px;
     border: 2px solid var(--text-muted);
-    border-top-color: var(--gold);
+    border-top-color: var(--accent);
     border-radius: 50%;
     animation: spin 0.6s linear infinite;
   }

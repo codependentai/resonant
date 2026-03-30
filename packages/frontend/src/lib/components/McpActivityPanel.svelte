@@ -360,7 +360,7 @@
   }
 
   .tool-row:not(:last-child) {
-    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    border-bottom: 1px solid var(--border);
   }
 
   .tool-name {
@@ -468,7 +468,7 @@
   }
 
   .audit-tool-row:not(:last-child) {
-    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    border-bottom: 1px solid var(--border);
   }
 
   .audit-tool-row .tool-name {

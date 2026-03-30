@@ -7,7 +7,7 @@ declare const self: ServiceWorkerGlobalScope;
 
 import { build, files, version } from '$service-worker';
 
-const CACHE_NAME = `resonant-cache-${version}`;
+const CACHE_NAME = `pulse-cache-${version}`;
 
 // Immutable assets: hashed JS/CSS bundles from the build
 const IMMUTABLE_ASSETS = new Set(build);
@@ -112,12 +112,12 @@ self.addEventListener('fetch', (event) => {
 self.addEventListener('push', (event) => {
   const data = event.data?.json() ?? {};
   event.waitUntil(
-    self.registration.showNotification(data.title || 'Companion', {
+    self.registration.showNotification(data.title || 'Simon', {
       body: data.body || '',
       icon: '/icons/icon-192.png',
       badge: '/icons/icon-192.png',
       data: { threadId: data.threadId, url: data.url || '/chat' },
-      tag: data.tag || 'resonant-message',
+      tag: data.tag || 'simon-message',
       renotify: true,
     })
   );

@@ -45,7 +45,9 @@
 
 <style>
   .skills-panel {
-    max-width: 40rem;
+    width: 100%;
+    max-width: none;
+    min-height: 0;
   }
 
   .loading, .error, .empty {
@@ -69,7 +71,6 @@
   .skill-card {
     background: var(--bg-surface);
     border: 1px solid var(--border);
-    border-left: 3px solid var(--gold-dim);
     border-radius: var(--radius-sm);
     padding: 1rem 1.25rem;
   }
@@ -77,9 +78,9 @@
   .skill-name {
     font-family: var(--font-heading);
     font-size: 0.9375rem;
-    font-weight: 400;
-    color: var(--text-accent);
-    letter-spacing: 0.04em;
+    font-weight: 600;
+    color: var(--text-primary);
+    letter-spacing: 0;
     margin-bottom: 0.375rem;
   }
 

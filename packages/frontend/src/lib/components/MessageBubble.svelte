@@ -566,9 +566,9 @@
   .message {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
-    margin: 0.5rem 0;
-    padding: 1rem 1.25rem;
+    gap: 0.55rem;
+    margin: 0.4rem 0;
+    padding: 1rem 1.1rem;
     position: relative;
     max-width: 100%;
     overflow-wrap: break-word;
@@ -577,18 +577,21 @@
   .message.companion {
     align-self: flex-start;
     width: 100%;
-    background: none;
-    border: none;
-    border-radius: 0;
-    padding-left: 1.25rem;
+    background: var(--companion-bg);
+    border: 1px solid var(--border);
+    border-radius: 1.125rem;
+    padding-left: 1.1rem;
+    box-shadow: inset 0 1px 0 var(--border);
   }
 
   .message.user {
     align-self: flex-end;
+    margin-left: auto;
     max-width: 85%;
-    background: var(--user-bg, var(--bg-surface));
-    border: none;
-    border-radius: 1.25rem;
+    background: var(--user-bg);
+    border: 1px solid var(--border);
+    border-radius: 1.125rem;
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.16);
   }
 
   .message.deleted {
@@ -600,27 +603,16 @@
     gap: 0.5rem;
     align-items: center;
     font-size: 0.875rem;
+    flex-wrap: wrap;
   }
 
   .role {
     display: none;
   }
 
-  .message.companion .role {
-    display: none;
-  }
-
-  .message.user .role {
-    display: none;
-  }
-
   .time {
     color: var(--text-muted);
     font-size: 0.75rem;
-  }
-
-  .message.companion .time {
-    color: var(--text-muted);
   }
 
   .edited {
@@ -643,23 +635,24 @@
   }
 
   .tools-toggle:hover {
-    color: var(--gold-dim);
-    border-color: var(--gold-dim);
+    color: var(--text-secondary);
+    border-color: var(--border-hover);
   }
 
   .reply-preview {
     display: flex;
     gap: 0.5rem;
-    margin-top: 0.25rem;
+    margin-top: 0.1rem;
     padding: 0.5rem;
-    background: rgba(0, 0, 0, 0.2);
-    border-radius: var(--radius-sm);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: 0.875rem;
     font-size: 0.875rem;
   }
 
   .reply-bar {
     width: 2px;
-    background: var(--gold-dim);
+    background: var(--accent);
     border-radius: 1px;
     flex-shrink: 0;
   }
@@ -689,8 +682,8 @@
     margin-top: 0.5rem;
     padding: 0.5rem;
     background: var(--bg-tertiary);
-    border-radius: var(--radius-sm);
     border: 1px solid var(--border);
+    border-radius: 0.875rem;
     font-size: 0.75rem;
     font-family: var(--font-mono);
     display: flex;
@@ -723,7 +716,7 @@
   }
 
   .tool-header:hover {
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--bg-hover);
   }
 
   .tool-header:disabled {
@@ -738,7 +731,7 @@
   }
 
   .tool-entry .tool-name {
-    color: var(--gold-dim);
+    color: var(--accent);
     white-space: nowrap;
     flex-shrink: 0;
   }
@@ -764,7 +757,7 @@
   .tool-output {
     margin: 0.25rem 0 0.25rem 1rem;
     padding: 0.5rem;
-    background: rgba(0, 0, 0, 0.3);
+    background: var(--bg-primary);
     border-radius: 0.25rem;
     color: var(--text-muted);
     font-size: 0.6875rem;
@@ -784,10 +777,10 @@
 
   .inline-tool {
     background: var(--bg-tertiary);
-    border-radius: var(--radius-sm);
     border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
     margin: 0.375rem 0;
-    padding: 0.375rem 0.625rem;
+    padding: 0.25rem 0.625rem;
     font-size: 0.75rem;
     font-family: var(--font-mono);
   }
@@ -812,7 +805,7 @@
   }
 
   .inline-tool-header:hover {
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--bg-hover);
   }
 
   .inline-tool-header:disabled {
@@ -831,7 +824,7 @@
     align-items: center;
     gap: 0.375rem;
     padding: 0.25rem 0.5rem;
-    background: rgba(139, 92, 246, 0.08);
+    background: var(--bg-tertiary);
     color: var(--text-muted);
     font-size: 0.75rem;
     font-family: var(--font-mono);
@@ -843,13 +836,13 @@
   }
 
   .thinking-header:hover {
-    background: rgba(139, 92, 246, 0.14);
+    background: var(--bg-hover);
     color: var(--text-secondary);
   }
 
   .thinking-icon {
     flex-shrink: 0;
-    color: var(--gold-dim);
+    color: var(--accent);
     display: flex;
     align-items: center;
   }
@@ -859,7 +852,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    color: var(--gold-dim);
+    color: var(--text-secondary);
   }
 
   .thinking-chevron {
@@ -871,7 +864,7 @@
   .thinking-content {
     margin: 0.25rem 0 0.25rem 0;
     padding: 0.5rem 0.625rem;
-    background: rgba(0, 0, 0, 0.2);
+    background: var(--bg-primary);
     border-radius: 0 0 0.25rem 0.25rem;
     color: var(--text-muted);
     font-size: 0.6875rem;
@@ -885,7 +878,7 @@
   .tool-spinner {
     width: 0.625rem;
     height: 0.625rem;
-    border: 1.5px solid var(--gold-dim);
+    border: 1.5px solid var(--accent);
     border-top-color: transparent;
     border-radius: 50%;
     animation: toolSpin 0.8s linear infinite;
@@ -904,21 +897,18 @@
     height: 26px;
     width: 26px;
     padding: 0;
-    border-radius: var(--radius-sm, 0.25rem);
+    border-radius: var(--radius);
     color: var(--text-muted);
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    transition: color 0.15s, background 0.15s;
+    transition: color var(--transition), background var(--transition);
   }
 
   .read-aloud-btn:hover:not(:disabled) {
-    color: var(--gold-dim);
-    background: rgba(255, 255, 255, 0.05);
+    color: var(--accent);
+    background: var(--bg-hover);
   }
 
   .read-aloud-btn.playing {
-    color: var(--gold-dim);
+    color: var(--accent);
   }
 
   .read-aloud-btn:disabled {
@@ -933,7 +923,7 @@
   .reactions-row {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.25rem;
+    gap: 0.35rem;
     margin-top: 0.25rem;
   }
 
@@ -950,23 +940,23 @@
     display: inline-flex;
     align-items: center;
     gap: 0.1875rem;
-    padding: 0.125rem 0.375rem;
-    background: rgba(255, 255, 255, 0.06);
+    padding: 0.25rem 0.5rem;
+    background: var(--bg-hover);
     border: 1px solid var(--border);
-    border-radius: 1rem;
+    border-radius: 999px;
     cursor: pointer;
     font-size: 0.875rem;
     transition: all 0.15s;
   }
 
   .reaction-chip:hover {
-    background: rgba(255, 255, 255, 0.12);
-    border-color: var(--gold-dim);
+    background: var(--bg-hover);
+    border-color: var(--border-hover);
   }
 
   .reaction-chip.mine {
-    background: rgba(245, 197, 66, 0.12);
-    border-color: var(--gold-dim);
+    background: var(--bg-active);
+    border-color: var(--accent);
   }
 
   .reaction-emoji {
@@ -984,8 +974,8 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 1.5rem;
-    height: 1.5rem;
+    width: 1.75rem;
+    height: 1.75rem;
     background: transparent;
     border: 1px dashed var(--border);
     border-radius: 50%;
@@ -997,9 +987,9 @@
   }
 
   .reaction-add:hover {
-    border-color: var(--gold-dim);
-    color: var(--gold-dim);
-    background: rgba(245, 197, 66, 0.08);
+    border-color: var(--border-hover);
+    color: var(--text-secondary);
+    background: var(--bg-hover);
   }
 
   .reaction-picker-wrapper {
@@ -1015,9 +1005,9 @@
     display: flex;
     gap: 2px;
     padding: 4px 6px;
-    background: var(--bg-secondary, #1a1025);
+    background: var(--bg-secondary);
     border: 1px solid var(--border);
-    border-radius: 8px;
+    border-radius: 0.875rem;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
     z-index: 10;
     white-space: nowrap;
@@ -1038,13 +1028,13 @@
   }
 
   .quick-emoji:hover {
-    background: rgba(245, 197, 66, 0.15);
+    background: var(--bg-hover);
   }
 
   .read-status {
     display: flex;
     justify-content: flex-end;
-    margin-top: 0.125rem;
+    margin-top: 0.05rem;
   }
 
   .check {
@@ -1054,7 +1044,7 @@
   }
 
   .check.read {
-    color: var(--gold);
+    color: var(--accent);
   }
 
   .markdown-content :global(p) {
@@ -1070,7 +1060,7 @@
   }
 
   .markdown-content :global(code) {
-    background: rgba(0, 0, 0, 0.3);
+    background: var(--bg-tertiary);
     padding: 0.125rem 0.25rem;
     border-radius: 0.25rem;
     font-family: var(--font-mono);
@@ -1078,7 +1068,7 @@
   }
 
   .markdown-content :global(pre) {
-    background: rgba(0, 0, 0, 0.3);
+    background: var(--bg-tertiary);
     padding: 0.75rem;
     border-radius: var(--radius-sm);
     overflow-x: auto;
@@ -1091,9 +1081,9 @@
   }
 
   .markdown-content :global(a) {
-    color: var(--gold);
+    color: var(--accent);
     text-decoration: underline;
-    text-decoration-color: var(--gold-dim);
+    text-decoration-color: var(--accent-muted);
   }
 
   .markdown-content :global(strong) {
@@ -1111,7 +1101,7 @@
   }
 
   .markdown-content :global(blockquote) {
-    border-left: 2px solid var(--gold-dim);
+    border-left: 2px solid var(--accent-muted);
     padding-left: 1rem;
     margin: 0.5rem 0;
     color: var(--text-secondary);
@@ -1162,13 +1152,13 @@
     z-index: 1001;
     padding: 0.5rem;
     color: white;
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--bg-active);
     border-radius: 50%;
     transition: background 0.2s;
   }
 
   .lightbox-close:hover {
-    background: rgba(255, 255, 255, 0.2);
+    background: var(--bg-hover);
   }
 
   .lightbox img {
@@ -1207,7 +1197,7 @@
     align-items: center;
     justify-content: center;
     border-radius: 50%;
-    background: var(--gold-dim);
+    background: var(--accent);
     color: var(--bg-primary);
     flex-shrink: 0;
     transition: all var(--transition);
@@ -1215,14 +1205,13 @@
   }
 
   .audio-play-btn:hover {
-    background: var(--gold);
-    box-shadow: 0 0 10px var(--gold-ember);
+    background: var(--accent-hover);
   }
 
   .audio-time {
     font-size: 0.6875rem;
     font-family: var(--font-mono);
-    color: var(--text-muted);
+    color: var(--text-secondary);
     min-width: 2.25rem;
     text-align: center;
     flex-shrink: 0;
@@ -1245,7 +1234,7 @@
 
   .audio-progress {
     height: 100%;
-    background: var(--gold-dim);
+    background: var(--accent);
     border-radius: 2px;
     transition: width 0.1s linear;
   }
@@ -1255,7 +1244,7 @@
   }
 
   .audio-bar:hover .audio-progress {
-    background: var(--gold);
+    background: var(--accent-hover);
   }
 
   .audio-transcript {
@@ -1274,7 +1263,7 @@
     align-items: center;
     gap: 0.75rem;
     padding: 0.75rem;
-    background: rgba(0, 0, 0, 0.15);
+    background: var(--bg-tertiary);
     border-radius: var(--radius-sm);
     color: var(--text-primary);
     text-decoration: none;
@@ -1282,12 +1271,12 @@
   }
 
   .file-link:hover {
-    background: rgba(0, 0, 0, 0.25);
+    background: var(--bg-hover);
   }
 
   .file-link svg {
     flex-shrink: 0;
-    color: var(--gold-dim);
+    color: var(--accent);
   }
 
   .file-info {
@@ -1313,7 +1302,7 @@
   .cursor {
     display: inline-block;
     animation: blink 1s infinite;
-    color: var(--gold);
+    color: var(--accent);
     margin-left: 0.125rem;
   }
 

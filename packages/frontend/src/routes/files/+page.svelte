@@ -299,13 +299,13 @@
   }
 
   .badge-image {
-    background: rgba(139, 92, 246, 0.2);
-    color: #a78bfa;
+    background: var(--bg-active);
+    color: var(--accent);
   }
 
   .badge-audio {
-    background: rgba(245, 197, 66, 0.2);
-    color: var(--gold);
+    background: var(--bg-active);
+    color: var(--accent);
   }
 
   .badge-file {
@@ -338,8 +338,8 @@
     display: inline-block;
     font-size: 0.625rem;
     font-weight: 500;
-    color: var(--gold);
-    background: rgba(245, 197, 66, 0.1);
+    color: var(--accent);
+    background: var(--bg-active);
     padding: 0 0.25rem;
     border-radius: 0.125rem;
     margin-left: 0.25rem;

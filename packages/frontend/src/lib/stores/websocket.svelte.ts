@@ -268,6 +268,7 @@ function handleMessage(event: MessageEvent) {
           unread_count: 0,
           last_activity_at: msg.thread.created_at,
           last_message_preview: null,
+          pinned_at: null,
         }, ...threads];
         break;
 
@@ -439,12 +440,18 @@ function handleMessage(event: MessageEvent) {
 
       case 'canvas_created':
         canvases = [msg.canvas, ...canvases];
+        activeCanvasId = msg.canvas.id;
         break;
 
       case 'canvas_updated': {
         canvases = canvases.map(c =>
           c.id === msg.canvasId
-            ? { ...c, content: msg.content, updated_at: msg.updatedAt }
+            ? {
+                ...c,
+                content: msg.content,
+                title: msg.title ?? c.title,
+                updated_at: msg.updatedAt,
+              }
             : c
         );
         break;
@@ -510,7 +517,10 @@ function handleMessage(event: MessageEvent) {
             platform: 'web',
             metadata: null,
             reply_to_id: null,
+            reply_to_preview: null,
+            original_content: null,
             created_at: new Date().toISOString(),
+            delivered_at: null,
             edited_at: null,
             deleted_at: null,
             read_at: null,
@@ -792,7 +802,7 @@ export function getCompactionNotice() { return compactionNotice; }
 export function getCanvases() { return canvases; }
 export function getActiveCanvasId() { return activeCanvasId; }
 export function setActiveCanvasId(id: string | null) { activeCanvasId = id; }
-export function sendCanvasCreate(title: string, contentType: 'markdown' | 'code' | 'text', language?: string, threadId?: string) {
+export function sendCanvasCreate(title: string, contentType: 'markdown' | 'code' | 'text' | 'html', language?: string, threadId?: string) {
   send({ type: 'canvas_create', title, contentType, language, threadId });
 }
 export function sendCanvasUpdate(canvasId: string, content: string) {
@@ -806,6 +816,11 @@ export function sendCanvasUpdate(canvasId: string, content: string) {
 }
 export function sendCanvasUpdateTitle(canvasId: string, title: string) {
   send({ type: 'canvas_update_title', canvasId, title });
+  canvases = canvases.map(c =>
+    c.id === canvasId
+      ? { ...c, title, updated_at: new Date().toISOString() }
+      : c
+  );
 }
 export function sendCanvasDelete(canvasId: string) {
   send({ type: 'canvas_delete', canvasId });

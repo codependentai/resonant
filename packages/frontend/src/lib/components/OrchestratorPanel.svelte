@@ -75,14 +75,14 @@
       return conditions.map(c => {
         switch (c.type) {
           case 'presence_state':
-            return c.state === 'active' ? 'User is active'
-              : c.state === 'idle' ? 'User is idle'
-              : c.state === 'offline' ? 'User is offline'
+            return c.state === 'active' ? 'Mary is active'
+              : c.state === 'idle' ? 'Mary is idle'
+              : c.state === 'offline' ? 'Mary is offline'
               : `Presence: ${c.state}`;
           case 'presence_transition':
-            return `User goes ${c.from} → ${c.to}`;
+            return `Mary goes ${c.from} → ${c.to}`;
           case 'agent_free':
-            return 'Companion is free';
+            return 'Simon is free';
           case 'time_window': {
             const after = c.after as string;
             const before = c.before as string | undefined;
@@ -115,7 +115,7 @@
 
   <!-- Wake schedules -->
   <div class="section">
-    <h3 class="section-title">Night Wakes</h3>
+    <h3 class="section-title">Night Routines</h3>
     <div class="task-list">
       {#each wakeTasks as task}
         <div class="task-row" class:disabled={!task.enabled}>
@@ -156,7 +156,7 @@
 
   <!-- Check-ins -->
   <div class="section">
-    <h3 class="section-title">Check-ins</h3>
+    <h3 class="section-title">Check-in Routines</h3>
     <div class="task-list">
       {#each checkinTasks as task}
         <div class="task-row" class:disabled={!task.enabled}>
@@ -385,10 +385,8 @@
 
   .section-title {
     font-size: 0.875rem;
-    font-weight: 500;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+    font-weight: 600;
+    color: var(--text-primary);
     display: flex;
     align-items: center;
     gap: 0.75rem;

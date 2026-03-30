@@ -95,6 +95,18 @@
   let rulesLoading = $state(false);
   let expandedRules = $state<Set<string>>(new Set());
 
+  // Activity log state
+  interface LogEntry {
+    timestamp: string;
+    level: 'info' | 'warn' | 'error';
+    event: string;
+    detail?: string;
+  }
+  let activityLogs = $state<LogEntry[]>([]);
+  let logsLoading = $state(false);
+  let showLogs = $state(false);
+  let logsTimer: ReturnType<typeof setInterval> | null = null;
+
   // Section collapse state
   let showSettings = $state(false);
   let showRules = $state(false);
@@ -128,6 +140,46 @@
     } finally {
       loading = false;
     }
+  }
+
+  async function loadLogs() {
+    logsLoading = true;
+    try {
+      const res = await fetch('/api/discord/logs?limit=100');
+      if (res.ok) {
+        activityLogs = await res.json();
+      }
+    } catch {
+      // silent — non-critical
+    } finally {
+      logsLoading = false;
+    }
+  }
+
+  function toggleLogs() {
+    showLogs = !showLogs;
+    if (showLogs) {
+      loadLogs();
+      logsTimer = setInterval(loadLogs, 10000);
+    } else if (logsTimer) {
+      clearInterval(logsTimer);
+      logsTimer = null;
+    }
+  }
+
+  function formatLogTime(iso: string): string {
+    const d = new Date(iso);
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  }
+
+  function formatLogDate(iso: string): string {
+    const d = new Date(iso);
+    const today = new Date();
+    if (d.toDateString() === today.toDateString()) return 'Today';
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
+    return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
   }
 
   async function loadSettings() {
@@ -412,11 +464,47 @@
       </section>
     {/if}
 
+    <!-- Activity Log -->
+    {#if isEnabled}
+      <section class="section">
+        <button class="collapsible-header" onclick={toggleLogs}>
+          <h3 class="section-title">Recent Activity</h3>
+          <span class="chevron" class:open={showLogs}>&#9656;</span>
+        </button>
+
+        {#if showLogs}
+          {#if logsLoading && activityLogs.length === 0}
+            <p class="loading">Loading logs...</p>
+          {:else if activityLogs.length === 0}
+            <p class="section-desc">No activity recorded yet.</p>
+          {:else}
+            <div class="log-list">
+              {#each activityLogs as entry, i}
+                {@const prevDate = i > 0 ? formatLogDate(activityLogs[i - 1].timestamp) : null}
+                {@const thisDate = formatLogDate(entry.timestamp)}
+                {#if thisDate !== prevDate}
+                  <div class="log-date-sep">{thisDate}</div>
+                {/if}
+                <div class="log-entry log-{entry.level}">
+                  <span class="log-time">{formatLogTime(entry.timestamp)}</span>
+                  <span class="log-level-dot"></span>
+                  <span class="log-event">{entry.event}</span>
+                  {#if entry.detail}
+                    <span class="log-detail">{entry.detail}</span>
+                  {/if}
+                </div>
+              {/each}
+            </div>
+          {/if}
+        {/if}
+      </section>
+    {/if}
+
     <!-- Pending Pairings -->
     {#if pendingPairings.length > 0}
       <section class="section">
         <h3 class="section-title">Pending Pairing Requests</h3>
-        <p class="section-desc">Users who sent a pairing code via DM. Approve to allow them to message companion.</p>
+        <p class="section-desc">Users who sent a pairing code via DM. Approve to allow them to message Simon.</p>
         <div class="pairing-list">
           {#each pendingPairings as pairing}
             <div class="pairing-card">
@@ -444,7 +532,7 @@
     {#if approvedPairings.length > 0}
       <section class="section">
         <h3 class="section-title">Approved Users</h3>
-        <p class="section-desc">Users who can message companion via Discord DMs.</p>
+        <p class="section-desc">Users who can message Simon via Discord DMs.</p>
         <div class="pairing-list">
           {#each approvedPairings as pairing}
             <div class="pairing-card">
@@ -507,9 +595,9 @@
             </div>
 
             <div class="form-group">
-              <label class="form-label">Owner active threshold (minutes)</label>
+              <label class="form-label">Mary active threshold (minutes)</label>
               <input type="number" class="form-input" bind:value={settings.maryActiveThresholdMin} onchange={() => settingsDirty = true} />
-              <span class="form-hint">Defer non-owner messages when owner has been active within this window</span>
+              <span class="form-hint">Defer non-Mary messages when she's been active within this window</span>
             </div>
 
             <div class="form-group">
@@ -862,11 +950,11 @@
   }
 
   .section-title {
-    font-family: var(--font-heading);
+    font-family: var(--font-body);
     font-size: 0.9375rem;
-    font-weight: 400;
-    color: var(--text-accent);
-    letter-spacing: 0.04em;
+    font-weight: 600;
+    color: var(--text-primary);
+    letter-spacing: 0;
     margin-bottom: 0.5rem;
   }
 
@@ -954,8 +1042,8 @@
   }
 
   .toggle-switch.on {
-    background: var(--gold-dim);
-    border-color: var(--gold-dim);
+    background: var(--accent);
+    border-color: var(--accent);
   }
 
   .toggle-switch.small {
@@ -1132,13 +1220,13 @@
   }
 
   .btn-primary {
-    background: var(--gold-dim);
+    background: var(--accent);
     color: var(--bg-primary);
-    border-color: var(--gold-dim);
+    border-color: var(--accent);
   }
 
   .btn-primary:hover:not(:disabled) {
-    background: var(--gold);
+    background: var(--accent-hover);
   }
 
   .btn-danger {
@@ -1206,7 +1294,7 @@
 
   .form-input:focus, .form-textarea:focus {
     outline: none;
-    border-color: var(--gold-dim);
+    border-color: var(--border-hover);
   }
 
   .form-textarea {
@@ -1268,8 +1356,10 @@
   }
 
   .rules-tab.active {
-    color: var(--gold);
-    border-bottom-color: var(--gold-dim);
+    color: var(--text-primary);
+    background: var(--bg-active);
+    border-bottom-color: transparent;
+    border-radius: var(--radius-sm);
   }
 
   .rules-list {
@@ -1307,7 +1397,7 @@
   }
 
   .rule-header:hover {
-    background: rgba(255, 255, 255, 0.02);
+    background: var(--bg-hover);
   }
 
   .rule-name {
@@ -1346,6 +1436,79 @@
     font-size: 0.8125rem;
     color: #ef4444;
     margin-top: 0.75rem;
+  }
+
+  /* Activity log */
+  .log-list {
+    max-height: 24rem;
+    overflow-y: auto;
+    margin-top: 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: 0.375rem;
+    background: var(--bg-surface);
+  }
+
+  .log-date-sep {
+    font-size: 0.6875rem;
+    color: var(--text-muted);
+    padding: 0.375rem 0.75rem;
+    background: var(--bg-base, var(--bg-surface));
+    border-bottom: 1px solid var(--border);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+
+  .log-entry {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    padding: 0.3125rem 0.75rem;
+    font-size: 0.75rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
+  }
+
+  .log-entry:last-child {
+    border-bottom: none;
+  }
+
+  .log-time {
+    font-family: var(--font-mono, monospace);
+    color: var(--text-muted);
+    font-size: 0.6875rem;
+    flex-shrink: 0;
+    min-width: 5rem;
+  }
+
+  .log-level-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    align-self: center;
+  }
+
+  .log-info .log-level-dot { background: #64748b; }
+  .log-warn .log-level-dot { background: #f59e0b; }
+  .log-error .log-level-dot { background: #ef4444; }
+
+  .log-event {
+    color: var(--text-primary);
+    font-weight: 500;
+    flex-shrink: 0;
+  }
+
+  .log-warn .log-event { color: #f59e0b; }
+  .log-error .log-event { color: #ef4444; }
+
+  .log-detail {
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   @media (max-width: 768px) {

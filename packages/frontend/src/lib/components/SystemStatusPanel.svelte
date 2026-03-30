@@ -76,7 +76,7 @@
       </div>
 
       <div class="stat-card">
-        <span class="stat-label">User</span>
+        <span class="stat-label">Mary</span>
         <span class="stat-value">
           {#if status.maryConnected}
             <span class="presence-dot" style="background: var(--status-active)"></span>
@@ -127,9 +127,7 @@
 
   .stat-label {
     font-size: 0.75rem;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+    color: var(--text-secondary);
   }
 
   .stat-value {

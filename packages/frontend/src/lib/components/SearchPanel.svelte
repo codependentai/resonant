@@ -1,6 +1,4 @@
 <script lang="ts">
-  import { getCompanionName } from '$lib/stores/settings.svelte';
-
   let {
     onresult,
     onclose,
@@ -8,8 +6,6 @@
     onresult?: (result: { messageId: string; threadId: string }) => void;
     onclose?: () => void;
   }>();
-
-  let companionName = $derived(getCompanionName());
 
   interface SearchHit {
     messageId: string;
@@ -113,7 +109,7 @@
         {#each results as hit (hit.messageId)}
           <button class="search-result" onclick={() => handleResultClick(hit)}>
             <div class="result-header">
-              <span class="result-role" class:companion={hit.role === 'companion'}>{hit.role === 'companion' ? companionName : 'You'}</span>
+              <span class="result-role" class:simon={hit.role === 'companion'}>{hit.role === 'companion' ? 'Simon' : 'Mary'}</span>
               <span class="result-thread">{hit.threadName}</span>
               <span class="result-time">{formatTime(hit.createdAt)}</span>
             </div>
@@ -174,7 +170,7 @@
 
   .search-icon {
     flex-shrink: 0;
-    color: var(--gold-dim);
+    color: var(--text-muted);
   }
 
   .search-input {
@@ -205,7 +201,7 @@
   .search-spinner {
     width: 1rem;
     height: 1rem;
-    border: 2px solid var(--gold-dim);
+    border: 2px solid var(--accent);
     border-top-color: transparent;
     border-radius: 50%;
     animation: spin 0.6s linear infinite;
@@ -243,7 +239,7 @@
   }
 
   .search-result:hover {
-    background: var(--bg-tertiary);
+    background: var(--bg-hover);
   }
 
   .result-header {
@@ -255,12 +251,12 @@
 
   .result-role {
     font-family: var(--font-heading);
-    color: var(--mary-accent);
+    color: var(--text-secondary);
     letter-spacing: 0.04em;
   }
 
-  .result-role.companion {
-    color: var(--gold);
+  .result-role.simon {
+    color: var(--text-secondary);
   }
 
   .result-thread {

@@ -63,7 +63,7 @@ import type { VoiceService } from '../services/voice.js';
 import type { TelegramService } from '../services/telegram/index.js';
 import type { PushService } from '../services/push.js';
 import rateLimit from 'express-rate-limit';
-import ccRoutes from './cc-routes.js';
+// CC routes imported lazily below (after config loads)
 
 const router = Router();
 
@@ -855,10 +855,7 @@ router.post('/internal/embed-backfill', async (req, res) => {
 // --- Protected routes (auth required when password is set) ---
 router.use(authMiddleware);
 
-// --- Command Center ---
-if (getResonantConfig().command_center.enabled) {
-  router.use('/cc', ccRoutes);
-}
+// --- Command Center (mounted via initCcRoutes after config loads) ---
 
 // --- Preferences (resonant.yaml) ---
 
@@ -2169,5 +2166,17 @@ router.delete('/discord/rules/user/:id', (req, res) => {
     res.status(500).json({ error: 'Failed to delete user rule' });
   }
 });
+
+/** Call after loadConfig() to mount Command Center routes */
+export async function initCcRoutes() {
+  try {
+    if (getResonantConfig().command_center.enabled) {
+      const { default: ccRoutes } = await import('./cc-routes.js');
+      router.use('/cc', ccRoutes);
+    }
+  } catch (e) {
+    console.warn('[CC] Failed to mount Command Center routes:', (e as Error).message);
+  }
+}
 
 export default router;

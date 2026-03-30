@@ -54,8 +54,8 @@
   }
 
   .connection-status.error {
-    background: rgba(180, 60, 60, 0.1);
-    border-bottom-color: rgba(180, 60, 60, 0.2);
+    background: rgba(239, 68, 68, 0.08);
+    border-bottom-color: rgba(239, 68, 68, 0.15);
   }
 
   @keyframes slideDown {
@@ -79,14 +79,14 @@
   }
 
   .error .status-content {
-    color: #c07070;
+    color: var(--status-error, #ef4444);
   }
 
   .spinner {
     width: 1rem;
     height: 1rem;
     border: 2px solid var(--border);
-    border-top-color: var(--gold-dim);
+    border-top-color: var(--accent);
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
   }
@@ -94,7 +94,7 @@
   .error-icon {
     width: 1.25rem;
     height: 1.25rem;
-    background: #8a4040;
+    background: var(--status-error, #ef4444);
     color: var(--text-primary);
     border-radius: 50%;
     display: flex;

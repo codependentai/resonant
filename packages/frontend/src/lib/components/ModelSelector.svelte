@@ -63,8 +63,8 @@
     font-size: 0.6875rem;
     letter-spacing: 0.06em;
     color: var(--text-muted);
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
     border-radius: 1rem;
     padding: 0.2rem 0.625rem;
     cursor: pointer;
@@ -73,8 +73,8 @@
   }
 
   .model-pill:hover {
-    color: var(--gold-dim);
-    border-color: rgba(245, 197, 66, 0.2);
+    color: var(--text-secondary);
+    border-color: var(--border-hover);
   }
 
   .model-dropdown {
@@ -116,12 +116,12 @@
   }
 
   .model-option:hover {
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--bg-hover);
     color: var(--text-primary);
   }
 
   .model-option.active {
-    color: var(--gold);
-    background: rgba(245, 197, 66, 0.1);
+    color: var(--accent);
+    background: var(--bg-active);
   }
 </style>

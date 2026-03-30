@@ -69,9 +69,10 @@
     error = null;
     try {
       const reg = await navigator.serviceWorker.ready;
+      const applicationServerKey = urlBase64ToUint8Array(vapidPublicKey) as unknown as BufferSource;
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
+        applicationServerKey,
       });
 
       const json = sub.toJSON();
@@ -248,11 +249,11 @@
   }
 
   .section-title {
-    font-family: var(--font-heading);
+    font-family: var(--font-body);
     font-size: 0.9375rem;
-    font-weight: 400;
-    color: var(--text-accent);
-    letter-spacing: 0.04em;
+    font-weight: 600;
+    color: var(--text-primary);
+    letter-spacing: 0;
     margin-bottom: 0.5rem;
   }
 
@@ -312,13 +313,13 @@
   }
 
   .btn-primary {
-    background: var(--gold-dim);
+    background: var(--accent);
     color: var(--bg-primary);
-    border-color: var(--gold-dim);
+    border-color: var(--accent);
   }
 
   .btn-primary:hover:not(:disabled) {
-    background: var(--gold);
+    background: var(--accent-hover);
   }
 
   .btn-secondary {
@@ -328,8 +329,8 @@
   }
 
   .btn-secondary:hover:not(:disabled) {
-    border-color: var(--gold-dim);
-    color: var(--text-accent);
+    border-color: var(--border-hover);
+    color: var(--text-primary);
   }
 
   .btn-danger {

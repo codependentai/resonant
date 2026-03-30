@@ -78,7 +78,7 @@ export type ServerMessage =
   | { type: 'context_usage'; percentage: number; tokensUsed: number; contextWindow: number }
   | { type: 'compaction_notice'; preTokens: number; message: string; isComplete: boolean }
   | { type: 'canvas_created'; canvas: Canvas }
-  | { type: 'canvas_updated'; canvasId: string; content: string; updatedAt: string }
+  | { type: 'canvas_updated'; canvasId: string; content: string; updatedAt: string; title?: string }
   | { type: 'canvas_deleted'; canvasId: string }
   | { type: 'canvas_list'; canvases: Canvas[] }
   | { type: 'thinking'; content: string; summary: string }

@@ -10,6 +10,8 @@
   } from '$lib/stores/websocket.svelte';
   import { renderMarkdown } from '$lib/utils/markdown';
 
+  let { embedded = false } = $props<{ embedded?: boolean }>();
+
   let canvases = $derived(getCanvases());
   let activeCanvasId = $derived(getActiveCanvasId());
   let canvas = $derived(canvases.find(c => c.id === activeCanvasId) ?? null);
@@ -103,7 +105,7 @@
 </script>
 
 {#if canvas}
-  <div class="canvas-panel">
+  <div class="canvas-panel" class:embedded>
     <header class="canvas-header">
       <div class="canvas-header-left">
         <input
@@ -182,20 +184,38 @@
     height: 100%;
     display: flex;
     flex-direction: column;
-    background: var(--bg-secondary);
+    background: var(--bg-surface);
     border-left: 1px solid var(--border);
     position: relative;
     flex-shrink: 0;
+  }
+
+  .canvas-panel.embedded {
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+    height: 100%;
+    border-left: none;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    overflow: hidden;
+    background:
+      radial-gradient(circle at top left, rgba(94, 171, 165, 0.08), transparent 30%),
+      linear-gradient(180deg, var(--bg-hover), transparent 18%),
+      var(--bg-secondary);
+    box-shadow: inset 0 1px 0 var(--border);
   }
 
   .canvas-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0.75rem 1rem;
+    padding: 0.9rem 1rem 0.85rem;
     border-bottom: 1px solid var(--border);
-    gap: 0.5rem;
+    gap: 0.75rem;
     flex-shrink: 0;
+    background: linear-gradient(180deg, var(--bg-hover), transparent);
+    backdrop-filter: blur(16px);
   }
 
   .canvas-header-left {
@@ -209,12 +229,12 @@
   .canvas-title-input {
     background: transparent;
     border: none;
-    color: var(--gold);
+    color: var(--text-primary);
     font-family: var(--font-heading);
-    font-size: 1rem;
-    font-weight: 400;
-    letter-spacing: 0.04em;
-    padding: 0.25rem 0;
+    font-size: 1.02rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    padding: 0.1rem 0;
     flex: 1;
     min-width: 0;
     outline: none;
@@ -223,19 +243,19 @@
   }
 
   .canvas-title-input:focus {
-    border-bottom-color: var(--gold-dim);
+    border-bottom-color: var(--border-hover);
   }
 
   .canvas-badge {
     font-size: 0.6875rem;
-    padding: 0.125rem 0.5rem;
+    padding: 0.22rem 0.55rem;
     border-radius: 1rem;
-    background: rgba(139, 92, 246, 0.15);
-    color: var(--accent, #8b5cf6);
+    background: rgba(94, 171, 165, 0.12);
+    color: var(--accent);
     white-space: nowrap;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    font-weight: 500;
+    font-weight: 600;
   }
 
   .canvas-header-actions {
@@ -243,21 +263,28 @@
     align-items: center;
     gap: 0.25rem;
     flex-shrink: 0;
+    padding: 0.2rem;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--bg-hover);
   }
 
   .canvas-btn {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 0.375rem;
-    border-radius: 0.375rem;
+    width: 2.15rem;
+    height: 2.15rem;
+    border-radius: 0.8rem;
     color: var(--text-muted);
+    border: 1px solid transparent;
     transition: all var(--transition);
   }
 
   .canvas-btn:hover {
-    color: var(--gold-dim);
-    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-primary);
+    background: var(--bg-hover);
+    border-color: var(--border-hover);
   }
 
   .canvas-btn-danger:hover {
@@ -268,6 +295,7 @@
     flex: 1;
     overflow: hidden;
     display: flex;
+    min-height: 0;
   }
 
   .canvas-editor {
@@ -275,7 +303,7 @@
     background: transparent;
     color: var(--text-primary);
     border: none;
-    padding: 1rem;
+    padding: 1.1rem 1.1rem 1.25rem;
     font-family: var(--font-body);
     font-size: 0.9375rem;
     line-height: 1.6;
@@ -293,7 +321,7 @@
 
   .canvas-preview {
     flex: 1;
-    padding: 1rem;
+    padding: 1.1rem 1.1rem 1.25rem;
     overflow-y: auto;
     color: var(--text-primary);
     font-size: 0.9375rem;
@@ -305,7 +333,7 @@
   .canvas-preview :global(p:last-child) { margin-bottom: 0; }
 
   .canvas-preview :global(code) {
-    background: rgba(0, 0, 0, 0.3);
+    background: var(--bg-tertiary);
     padding: 0.125rem 0.25rem;
     border-radius: 0.25rem;
     font-family: var(--font-mono);
@@ -313,7 +341,7 @@
   }
 
   .canvas-preview :global(pre) {
-    background: rgba(0, 0, 0, 0.3);
+    background: var(--bg-tertiary);
     padding: 0.75rem;
     border-radius: var(--radius-sm);
     overflow-x: auto;
@@ -393,25 +421,59 @@
       padding-top: env(safe-area-inset-top, 0px);
     }
 
+    .canvas-panel.embedded {
+      border: none;
+      border-radius: 0;
+      box-shadow: none;
+      background:
+        radial-gradient(circle at top left, rgba(94, 171, 165, 0.1), transparent 32%),
+        linear-gradient(180deg, var(--bg-hover), transparent 18%),
+        var(--bg-primary);
+    }
+
     .canvas-header {
-      padding: 0.5rem 0.75rem;
+      align-items: flex-start;
+      padding: 0.75rem 0.8rem 0.7rem;
+      gap: 0.7rem;
+    }
+
+    .canvas-panel.embedded .canvas-header {
+      padding-top: calc(env(safe-area-inset-top, 0px) + 0.8rem);
+    }
+
+    .canvas-header-left {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.45rem;
     }
 
     .canvas-title-input {
-      font-size: 0.9375rem;
+      font-size: 1rem;
+      width: 100%;
     }
 
     .canvas-editor {
-      padding: 0.75rem;
+      padding: 0.95rem 0.85rem calc(env(safe-area-inset-bottom, 0px) + 1.2rem);
       font-size: 1rem;
     }
 
     .canvas-preview {
-      padding: 0.75rem;
+      padding: 0.95rem 0.85rem calc(env(safe-area-inset-bottom, 0px) + 1.2rem);
+    }
+
+    .canvas-header-actions {
+      gap: 0.2rem;
+      padding: 0.18rem;
     }
 
     .canvas-btn {
-      padding: 0.5rem;
+      width: 2.25rem;
+      height: 2.25rem;
+      border-radius: 0.85rem;
+    }
+
+    .canvas-save-indicator {
+      bottom: calc(env(safe-area-inset-bottom, 0px) + 0.5rem);
     }
   }
 

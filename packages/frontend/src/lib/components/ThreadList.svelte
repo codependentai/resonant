@@ -108,7 +108,7 @@
     monthsInitialized = true;
 
     const collapsed = new Set<string>();
-    const activeThread = threads.find(t => t.id === activeThreadId);
+    const activeThread = threads.find((t: ThreadSummary) => t.id === activeThreadId);
     const activeMonthKey = activeThread?.type === 'daily' ? getMonthKey(activeThread.last_activity_at) : null;
 
     for (const [key] of months) {
@@ -296,6 +296,19 @@
 {/snippet}
 
 <aside class="thread-list" aria-label="Thread list">
+  <div class="thread-header">
+    <div class="thread-header-copy">
+      <span class="thread-eyebrow">Workspace</span>
+      <h2>Threads</h2>
+    </div>
+    <button class="new-thread-button" onclick={handleCreate}>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12 5v14M5 12h14"/>
+      </svg>
+      New
+    </button>
+  </div>
+
   <div class="thread-groups">
     <div class="filter-input-wrapper">
       <input
@@ -368,12 +381,6 @@
     <button class="action-button" onclick={toggleArchived}>
       {showArchived ? 'Hide Archive' : 'Archive'}
     </button>
-    <button class="new-thread-button" onclick={handleCreate}>
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M12 5v14M5 12h14"/>
-      </svg>
-      New Thread
-    </button>
   </div>
 
   {#if showArchived}
@@ -400,28 +407,58 @@
     display: flex;
     flex-direction: column;
     height: 100%;
-    background: var(--bg-secondary);
-    border-right: 1px solid var(--border);
+    background:
+      linear-gradient(180deg, var(--bg-hover), transparent 16%),
+      var(--bg-primary);
+  }
+
+  .thread-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 1rem 1rem 0.75rem 1rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .thread-header-copy {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .thread-eyebrow {
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--text-muted);
+  }
+
+  .thread-header h2 {
+    font-size: 1rem;
+    color: var(--text-primary);
+    font-weight: 600;
   }
 
   .thread-groups {
     flex: 1;
     overflow-y: auto;
-    padding: 0.5rem 0 1rem;
+    padding: 0.75rem 0 1rem;
   }
 
   .filter-input-wrapper {
     position: relative;
-    padding: 0.5rem 0.75rem;
+    padding: 0 0.75rem 0.75rem;
   }
 
   .filter-input {
     width: 100%;
-    padding: 0.5rem 0.75rem;
+    min-height: 44px;
+    padding: 0.625rem 0.875rem;
     padding-right: 2rem;
     background: var(--bg-surface);
     border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
+    border-radius: 0.875rem;
     color: var(--text-primary);
     font-size: 0.8125rem;
     outline: none;
@@ -429,7 +466,7 @@
   }
 
   .filter-input:focus {
-    border-color: var(--gold-dim);
+    border-color: var(--border-hover);
   }
 
   .filter-input::placeholder {
@@ -460,7 +497,7 @@
   }
 
   .pinned-title {
-    color: var(--gold);
+    color: var(--accent);
   }
 
   .thread-group {
@@ -468,13 +505,11 @@
   }
 
   .group-title {
-    font-family: var(--font-heading);
+    font-family: var(--font-body);
     font-size: 0.6875rem;
-    font-weight: 400;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    color: var(--gold-dim);
-    padding: 0 1.25rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    padding: 0 1rem;
     margin-bottom: 0.5rem;
     border: none;
   }
@@ -490,7 +525,7 @@
   }
 
   .group-title.collapsible:hover {
-    color: var(--gold);
+    color: var(--text-secondary);
   }
 
   .group-chevron {
@@ -511,25 +546,24 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0.75rem 1.25rem;
+    gap: 0.75rem;
+    padding: 0.85rem 1rem;
     text-align: left;
     background: transparent;
     color: var(--text-secondary);
-    font-size: 0.9375rem;
+    font-size: 0.9rem;
     transition: all var(--transition);
     cursor: pointer;
   }
 
   .thread-item:hover {
-    background: var(--bg-tertiary);
+    background: var(--bg-hover);
     color: var(--text-primary);
   }
 
   .thread-item.active {
-    background: var(--bg-surface);
-    color: var(--text-accent);
-    border-left: 2px solid var(--gold);
-    padding-left: calc(1.25rem - 2px);
+    background: linear-gradient(90deg, rgba(94, 171, 165, 0.12), var(--bg-hover));
+    color: var(--text-primary);
   }
 
   .thread-item.archived {
@@ -545,7 +579,7 @@
   }
 
   .unread-badge {
-    background: var(--gold-dim);
+    background: var(--accent);
     color: var(--bg-primary);
     font-size: 0.6875rem;
     font-weight: 600;
@@ -557,19 +591,21 @@
   .context-menu {
     background: var(--bg-surface);
     border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    padding: 0.25rem;
-    margin: 0 0.5rem;
+    border-radius: 0.875rem;
+    padding: 0.35rem;
+    margin: 0 0.75rem;
+    box-shadow: var(--shadow-md);
   }
 
   .context-menu button {
     width: 100%;
+    min-height: 40px;
     padding: 0.5rem 0.75rem;
     text-align: left;
     background: transparent;
     color: var(--text-secondary);
     font-size: 0.875rem;
-    border-radius: var(--radius-sm);
+    border-radius: 0.625rem;
     cursor: pointer;
   }
 
@@ -595,7 +631,7 @@
     width: 100%;
     padding: 0.5rem 0.75rem;
     background: var(--bg-surface);
-    border: 1px solid var(--gold-dim);
+    border: 1px solid var(--border-hover);
     border-radius: var(--radius-sm);
     color: var(--text-primary);
     font-size: 0.9375rem;
@@ -603,7 +639,7 @@
   }
 
   .rename-input:focus {
-    border-color: var(--gold);
+    border-color: var(--accent);
   }
 
   .delete-confirm {
@@ -656,10 +692,12 @@
   .thread-actions {
     display: flex;
     border-top: 1px solid var(--border);
+    background: var(--bg-surface);
   }
 
   .action-button {
     flex: 1;
+    min-height: 48px;
     padding: 0.875rem;
     background: transparent;
     color: var(--text-muted);
@@ -674,23 +712,22 @@
   }
 
   .new-thread-button {
-    flex: 1;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
-    padding: 0.875rem;
-    background: transparent;
-    color: var(--gold-dim);
+    min-height: 44px;
+    padding: 0 0.875rem;
+    background: var(--accent);
+    color: var(--bg-primary);
     font-size: 0.8125rem;
     font-weight: 500;
-    border-left: 1px solid var(--border);
+    border-radius: 999px;
     transition: all var(--transition);
   }
 
   .new-thread-button:hover {
-    background: var(--gold-ember);
-    color: var(--gold);
+    background: var(--accent-hover);
   }
 
   .archived-section {
@@ -709,14 +746,17 @@
 
   @media (max-width: 768px) {
     .thread-list {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 80%;
-      max-width: 20rem;
-      z-index: 100;
-      box-shadow: 2px 0 8px var(--shadow);
-      padding-top: env(safe-area-inset-top, 0px);
+      position: static;
+      width: 100%;
+      max-width: none;
+      min-width: 0;
+      height: 100%;
+      box-shadow: none;
+      padding-top: 0;
+    }
+
+    .thread-header {
+      padding-top: calc(env(safe-area-inset-top, 0px) + 0.75rem);
     }
 
   }

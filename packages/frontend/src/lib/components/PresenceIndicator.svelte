@@ -19,14 +19,12 @@
   });
 </script>
 
-<div class="presence-indicator" title={statusInfo().text} role="status" aria-label={`Companion status: ${statusInfo().text}`}>
+<div class="presence-indicator" title={statusInfo().text}>
   <div
     class="presence-dot"
     class:pulse={statusInfo().pulse}
     style:background-color={statusInfo().color}
-    aria-hidden="true"
   ></div>
-  <span class="sr-only">{statusInfo().text}</span>
 </div>
 
 <style>
@@ -34,18 +32,6 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-  }
-
-  .sr-only {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border-width: 0;
   }
 
   .presence-dot {

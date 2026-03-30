@@ -17,7 +17,7 @@ import { PushService } from './services/push.js';
 import { DiscordService } from './services/discord/index.js';
 import { TelegramService } from './services/telegram/index.js';
 import { rateLimiter, securityHeaders } from './middleware/security.js';
-import apiRoutes from './routes/api.js';
+import apiRoutes, { initCcRoutes } from './routes/api.js';
 
 // Load config FIRST — before any other initialization
 const config = loadConfig();
@@ -89,7 +89,9 @@ app.use(helmet({
 }));
 
 app.use(securityHeaders);
-app.use(rateLimiter);
+// Rate limiter only on API/MCP routes — not static assets
+app.use('/api', rateLimiter);
+app.use('/mcp', rateLimiter);
 
 // CORS
 app.use(cors({
@@ -189,6 +191,11 @@ setGatewayServices({ discord: discordService, telegram: telegramService });
 console.log('Initializing WebSocket server...');
 const wss = createWebSocketServer(server, agentService, orchestrator);
 console.log('WebSocket server initialized');
+
+// Mount Command Center routes (after config is loaded)
+initCcRoutes().then(() => {
+  if (config.command_center.enabled) console.log('Command Center routes mounted at /api/cc');
+});
 
 // Start server
 server.listen(PORT, HOST, () => {

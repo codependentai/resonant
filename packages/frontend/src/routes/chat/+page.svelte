@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
+  import { goto } from '$app/navigation';
   import MessageBubble from '$lib/components/MessageBubble.svelte';
   import MessageInput from '$lib/components/MessageInput.svelte';
   import ThreadList from '$lib/components/ThreadList.svelte';
@@ -31,6 +32,7 @@
     getContextUsage,
     getCompactionNotice,
     getActiveCanvasId,
+    getCanvases,
     getStreamingSegments,
     sendStopGeneration,
     isStreaming,
@@ -55,24 +57,84 @@
   let contextUsage = $derived(getContextUsage());
   let compactionNotice = $derived(getCompactionNotice());
   let activeCanvasId = $derived(getActiveCanvasId());
+  let canvases = $derived(getCanvases());
+  let activeCanvas = $derived(canvases.find((canvas) => canvas.id === activeCanvasId) ?? null);
   let streamingSegments = $derived(getStreamingSegments());
   let isStreamingNow = $derived(isStreaming());
   let rateLimitInfo = $derived(getRateLimitInfo());
   let companionName = $derived(getCompanionName());
   let commandResult = $derived(getLastCommandResult());
 
-  // Canvas state
-  let canvasDropdownOpen = $state(false);
-
-  function toggleCanvasDropdown() {
-    canvasDropdownOpen = !canvasDropdownOpen;
-  }
-
   // Search state
   let searchOpen = $state(false);
 
+  // Workspace drawers
+  let canvasPanelOpen = $state(false);
+
+  // New thread modal
+  let newThreadOpen = $state(false);
+  let newThreadName = $state('');
+  let creatingThread = $state(false);
+
   function toggleSearch() {
     searchOpen = !searchOpen;
+  }
+
+  function openSettings() {
+    goto('/settings');
+  }
+
+  function toggleCanvasPanel() {
+    canvasPanelOpen = !canvasPanelOpen;
+  }
+
+  function closeCanvasPanel() {
+    canvasPanelOpen = false;
+  }
+
+  // Theme toggle
+  function toggleTheme() {
+    const html = document.documentElement;
+    const current = html.getAttribute('data-theme');
+    const next = current === 'light' ? 'dark' : 'light';
+    html.setAttribute('data-theme', next);
+    localStorage.setItem('resonant-theme', next);
+  }
+
+  function openNewThreadModal() {
+    newThreadName = '';
+    newThreadOpen = true;
+  }
+
+  function closeNewThreadModal() {
+    if (creatingThread) return;
+    newThreadOpen = false;
+    newThreadName = '';
+  }
+
+  async function submitNewThread() {
+    if (creatingThread) return;
+    creatingThread = true;
+    try {
+      const response = await fetch('/api/threads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newThreadName.trim() || undefined }),
+      });
+
+      if (!response.ok) throw new Error('Failed to create thread');
+
+      const data = await response.json();
+      await loadThreads();
+      newThreadOpen = false;
+      newThreadName = '';
+      await handleThreadSelect(data.thread.id);
+    } catch (err) {
+      console.error('Failed to create thread:', err);
+      alert('Failed to create thread');
+    } finally {
+      creatingThread = false;
+    }
   }
 
   async function handleSearchResult(result: { messageId: string; threadId: string }) {
@@ -89,15 +151,6 @@
       el.classList.add('highlight-flash');
       setTimeout(() => el.classList.remove('highlight-flash'), 2000);
     }
-  }
-
-  // Theme toggle
-  function toggleTheme() {
-    const html = document.documentElement;
-    const current = html.getAttribute('data-theme');
-    const next = current === 'light' ? 'dark' : 'light';
-    html.setAttribute('data-theme', next);
-    localStorage.setItem('resonant-theme', next);
   }
 
   // Local state
@@ -124,42 +177,9 @@
     shouldAutoScroll = true;
   }
 
-  // New thread modal state
-  let newThreadOpen = $state(false);
-  let newThreadName = $state('');
-  let creatingThread = $state(false);
-
-  function handleNewThread() {
-    newThreadName = '';
-    newThreadOpen = true;
-  }
-
-  function closeNewThreadModal() {
-    if (creatingThread) return;
-    newThreadOpen = false;
-    newThreadName = '';
-  }
-
-  async function submitNewThread() {
-    if (creatingThread) return;
-    creatingThread = true;
-    try {
-      const response = await fetch('/api/threads', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newThreadName.trim() || undefined }),
-      });
-      if (!response.ok) throw new Error('Failed to create thread');
-      const data = await response.json();
-      await loadThreads();
-      newThreadOpen = false;
-      newThreadName = '';
-      await handleThreadSelect(data.thread.id);
-    } catch (err) {
-      console.error('Failed to create thread:', err);
-    } finally {
-      creatingThread = false;
-    }
+  // Handle new thread creation
+  async function handleNewThread() {
+    openNewThreadModal();
   }
 
   // Handle batched send — text and/or files all go as one message → one agent query
@@ -287,11 +307,23 @@
       e.preventDefault();
       searchOpen = !searchOpen;
     }
-    if (e.key === 'Escape') {
-      if (newThreadOpen) { e.preventDefault(); closeNewThreadModal(); return; }
-      if (sidebarOpen) { e.preventDefault(); sidebarOpen = false; return; }
-      if (searchOpen) { e.preventDefault(); searchOpen = false; return; }
-      if (isStreamingNow) { e.preventDefault(); sendStopGeneration(); }
+    if (e.key === 'Escape' && canvasPanelOpen) {
+      e.preventDefault();
+      canvasPanelOpen = false;
+      return;
+    }
+    if (e.key === 'Escape' && sidebarOpen) {
+      e.preventDefault();
+      sidebarOpen = false;
+      return;
+    }
+    if (e.key === 'Escape' && newThreadOpen) {
+      e.preventDefault();
+      closeNewThreadModal();
+    }
+    if (e.key === 'Escape' && isStreamingNow) {
+      e.preventDefault();
+      sendStopGeneration();
     }
   }
 
@@ -327,6 +359,12 @@
     messages; // Track changes
     streaming; // Track streaming changes
     setTimeout(scrollToBottom, 50);
+  });
+
+  $effect(() => {
+    if (activeCanvasId) {
+      canvasPanelOpen = true;
+    }
   });
 </script>
 
@@ -399,24 +437,19 @@
         {#if totalUnread > 0}
           <div class="unread-badge">{totalUnread}</div>
         {/if}
-        <div class="canvas-trigger-wrapper">
-          <button
-            class="header-icon-btn"
-            class:active={activeCanvasId !== null || canvasDropdownOpen}
-            onclick={toggleCanvasDropdown}
-            aria-label="Canvases"
-            title="Canvases"
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-              <line x1="3" y1="9" x2="21" y2="9"/>
-              <line x1="9" y1="21" x2="9" y2="9"/>
-            </svg>
-          </button>
-          {#if canvasDropdownOpen}
-            <CanvasList onclose={() => canvasDropdownOpen = false} />
-          {/if}
-        </div>
+        <button
+          class="header-icon-btn"
+          class:active={canvasPanelOpen || !!activeCanvasId}
+          onclick={toggleCanvasPanel}
+          aria-label="Canvas"
+          title="Canvas"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="4" width="18" height="16" rx="2"/>
+            <path d="M9 4v16"/>
+            <path d="M9 10h12"/>
+          </svg>
+        </button>
         <a href="/files" class="header-icon-link" aria-label="Files">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -462,6 +495,15 @@
       </div>
     {/if}
 
+    <!-- Command result toast -->
+    {#if commandResult}
+      <div class="command-toast" class:error={!commandResult.success}>
+        <span class="command-toast-name">/{commandResult.name}</span>
+        <span class="command-toast-msg">{commandResult.error || commandResult.display || 'Command complete'}</span>
+        <button class="command-toast-close" onclick={clearCommandResult} aria-label="Dismiss command message">Dismiss</button>
+      </div>
+    {/if}
+
     <!-- Messages area -->
     <div
       class="messages-container"
@@ -483,7 +525,16 @@
             <div
               id="msg-{message.id}"
               class="message-wrapper"
+              role="button"
+              tabindex="0"
+              aria-label={`Reply to ${message.role === 'companion' ? companionName : 'You'} message`}
               oncontextmenu={(e) => { e.preventDefault(); handleReply(message); }}
+              onkeydown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  handleReply(message);
+                }
+              }}
             >
               <MessageBubble message={message} toolEvents={toolEventsMap[message.id] || []} segments={message.metadata?.segments as any || null} {companionName} />
             </div>
@@ -568,8 +619,17 @@
   </div>
 
   <!-- Canvas panel -->
-  {#if activeCanvasId}
-    <Canvas />
+  {#if canvasPanelOpen}
+    <button class="canvas-overlay" onclick={closeCanvasPanel} aria-label="Close canvas"></button>
+    <div class="canvas-sheet" role="dialog" aria-modal="true" aria-label="Canvas workspace">
+      <div class="canvas-sheet-card">
+        {#if activeCanvasId}
+          <Canvas embedded />
+        {:else}
+          <CanvasList embedded stayOpenOnSelect onclose={closeCanvasPanel} />
+        {/if}
+      </div>
+    </div>
   {/if}
 
   <!-- Search overlay -->
@@ -744,10 +804,6 @@
   .settings-link:hover {
     color: var(--gold-dim);
     text-decoration: none;
-  }
-
-  .canvas-trigger-wrapper {
-    position: relative;
   }
 
   .header-icon-btn {
@@ -1036,6 +1092,37 @@
     to { opacity: 0.7; }
   }
 
+  .canvas-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 320;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(10px);
+  }
+
+  .canvas-sheet {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    bottom: 1rem;
+    width: min(36rem, calc(100vw - 2rem));
+    z-index: 330;
+    pointer-events: none;
+  }
+
+  .canvas-sheet-card {
+    width: 100%;
+    height: 100%;
+    pointer-events: auto;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background: var(--bg-surface);
+    backdrop-filter: blur(20px);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+    overflow: hidden;
+    animation: modalRise 0.2s ease-out;
+  }
+
   /* Mobile styles */
   @media (max-width: 768px) {
     .sidebar-overlay {
@@ -1100,6 +1187,16 @@
       gap: 0.25rem;
       flex-shrink: 0;
     }
+
+    .canvas-sheet {
+      inset: 0;
+      width: 100%;
+    }
+
+    .canvas-sheet-card {
+      border-radius: 0;
+      border: none;
+    }
   }
 
   /* New thread modal */
@@ -1132,6 +1229,7 @@
     flex-direction: column;
     gap: 1rem;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    animation: modalRise 0.2s ease-out;
   }
 
   .thread-modal-header {
@@ -1218,4 +1316,15 @@
 
   .thread-modal-btn.create:hover { opacity: 0.9; }
   .thread-modal-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  @keyframes modalRise {
+    from {
+      opacity: 0;
+      transform: translateY(0.5rem) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
 </style>

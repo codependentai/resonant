@@ -8,7 +8,15 @@
     sendCanvasDelete,
   } from '$lib/stores/websocket.svelte';
 
-  let { onclose }: { onclose: () => void } = $props();
+  let {
+    onclose,
+    embedded = false,
+    stayOpenOnSelect = false,
+  }: {
+    onclose: () => void;
+    embedded?: boolean;
+    stayOpenOnSelect?: boolean;
+  } = $props();
 
   let canvases = $derived(getCanvases());
   let activeCanvasId = $derived(getActiveCanvasId());
@@ -30,7 +38,7 @@
 
   function handleSelect(id: string) {
     setActiveCanvasId(id);
-    onclose();
+    if (!stayOpenOnSelect) onclose();
   }
 
   function handleKeydown(e: KeyboardEvent) {
@@ -54,7 +62,7 @@
   }
 </script>
 
-<div class="canvas-dropdown">
+<div class="canvas-dropdown" class:embedded>
   <div class="canvas-dropdown-header">
     <span class="canvas-dropdown-title">Canvases</span>
     <button class="canvas-dropdown-close" onclick={onclose} aria-label="Close">
@@ -146,6 +154,20 @@
     animation: dropdownFade 0.15s ease-out;
   }
 
+  .canvas-dropdown.embedded {
+    position: static;
+    top: auto;
+    right: auto;
+    width: 100%;
+    max-height: none;
+    height: 100%;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    background: transparent;
+    animation: none;
+  }
+
   @keyframes dropdownFade {
     from { opacity: 0; transform: translateY(-0.25rem); }
     to { opacity: 1; transform: translateY(0); }
@@ -162,9 +184,9 @@
   .canvas-dropdown-title {
     font-family: var(--font-heading);
     font-size: 0.8125rem;
-    color: var(--gold-dim);
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
+    color: var(--text-secondary);
+    letter-spacing: 0;
+    font-weight: 600;
   }
 
   .canvas-dropdown-close {
@@ -183,7 +205,7 @@
     align-items: center;
     gap: 0.5rem;
     padding: 0.5rem 0.75rem;
-    color: var(--gold-dim);
+    color: var(--accent);
     font-size: 0.8125rem;
     font-weight: 500;
     border-bottom: 1px solid var(--border);
@@ -193,7 +215,7 @@
   }
 
   .canvas-new-btn:hover {
-    background: rgba(255, 255, 255, 0.03);
+    background: var(--bg-hover);
   }
 
   .canvas-new-form {
@@ -205,7 +227,7 @@
   }
 
   .canvas-new-input {
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--bg-surface);
     border: 1px solid var(--border);
     border-radius: 0.375rem;
     color: var(--text-primary);
@@ -215,7 +237,7 @@
   }
 
   .canvas-new-input:focus {
-    border-color: var(--gold-dim);
+    border-color: var(--border-hover);
   }
 
   .canvas-new-options {
@@ -224,7 +246,7 @@
   }
 
   .canvas-new-select {
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--bg-surface);
     border: 1px solid var(--border);
     border-radius: 0.375rem;
     color: var(--text-primary);
@@ -250,7 +272,7 @@
     padding: 0.25rem 0.75rem;
     font-size: 0.75rem;
     border-radius: 0.375rem;
-    background: var(--gold-dim);
+    background: var(--accent);
     color: var(--bg-primary);
     font-weight: 500;
     transition: opacity var(--transition);
@@ -286,18 +308,18 @@
     display: flex;
     width: 100%;
     padding: 0.5rem 0.75rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    border-bottom: 1px solid var(--border);
     transition: background var(--transition);
     text-align: left;
   }
 
   .canvas-item:hover {
-    background: rgba(255, 255, 255, 0.03);
+    background: var(--bg-hover);
   }
 
   .canvas-item.active {
-    background: rgba(139, 92, 246, 0.1);
-    border-left: 2px solid var(--accent, #8b5cf6);
+    background: var(--bg-active);
+    border-left: 2px solid var(--accent);
   }
 
   .canvas-item-info {
@@ -325,5 +347,43 @@
   .canvas-item-type {
     text-transform: uppercase;
     letter-spacing: 0.04em;
+  }
+
+  @media (max-width: 768px) {
+    .canvas-dropdown.embedded .canvas-dropdown-header {
+      padding: calc(env(safe-area-inset-top, 0px) + 0.8rem) 0.85rem 0.75rem;
+      border-bottom-color: var(--border);
+      background: linear-gradient(180deg, var(--bg-hover), transparent);
+      backdrop-filter: blur(16px);
+    }
+
+    .canvas-dropdown.embedded .canvas-new-btn,
+    .canvas-dropdown.embedded .canvas-new-form {
+      margin: 0 0.75rem;
+      border-radius: 1rem;
+      border: 1px solid var(--border);
+      background: var(--bg-surface);
+    }
+
+    .canvas-dropdown.embedded .canvas-new-btn {
+      margin-top: 0.75rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .canvas-dropdown.embedded .canvas-list {
+      padding: 0.75rem 0.75rem calc(env(safe-area-inset-bottom, 0px) + 1rem);
+    }
+
+    .canvas-dropdown.embedded .canvas-item {
+      border: 1px solid var(--border);
+      border-radius: 0.95rem;
+      margin-bottom: 0.55rem;
+      background: var(--bg-surface);
+    }
+
+    .canvas-dropdown.embedded .canvas-item.active {
+      border-left-width: 1px;
+      box-shadow: inset 0 0 0 1px rgba(94, 171, 165, 0.28);
+    }
   }
 </style>

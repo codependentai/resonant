@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import '../../../resonant.css';
+  import '../../resonant.css';
   import ResSkeleton from '$lib/components/ResSkeleton.svelte';
   import { CC_API, todayStr } from '$lib/utils/cc';
 
@@ -347,7 +347,7 @@
     border-radius: 1.5rem;
     background:
       radial-gradient(circle at top left, rgba(94, 171, 165, 0.12), transparent 28%),
-      rgba(11, 12, 16, 0.86);
+      var(--bg-secondary);
     box-shadow: var(--shadow-md);
   }
 
@@ -410,7 +410,7 @@
 
   .hero-secondary {
     border: 1px solid var(--border);
-    background: rgba(255, 255, 255, 0.02);
+    background: var(--bg-surface);
     color: var(--text-secondary);
   }
 
@@ -441,7 +441,7 @@
     padding: 1rem;
     border-radius: 1rem;
     border: 1px solid var(--border);
-    background: rgba(255, 255, 255, 0.02);
+    background: var(--bg-surface);
     color: var(--text-primary);
     transition: all var(--transition);
     min-width: 0;
@@ -477,7 +477,7 @@
     padding: 1rem;
     border: 1px solid var(--border);
     border-radius: 1.25rem;
-    background: rgba(255, 255, 255, 0.02);
+    background: var(--bg-surface);
     color: var(--text-primary);
     box-shadow: var(--shadow-sm);
   }
@@ -613,7 +613,7 @@
     padding: 1rem;
     border: 1px solid var(--border);
     border-radius: 1rem;
-    background: rgba(255, 255, 255, 0.02);
+    background: var(--bg-surface);
     color: var(--text-primary);
     transition: all var(--transition);
     min-width: 0;
