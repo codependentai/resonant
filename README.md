@@ -310,6 +310,12 @@ Apache 2.0 — see [LICENSE](LICENSE). Attribution required.
 
 <a href="https://github.com/rachelgeebee"><img src="https://github.com/rachelgeebee.png" width="32" height="32" style="border-radius:50%" alt="rachelgeebee" /></a> **[@rachelgeebee](https://github.com/rachelgeebee)** — bug reports, testing
 
+<a href="https://github.com/irorierorie"><img src="https://github.com/irorierorie.png" width="32" height="32" style="border-radius:50%" alt="irorierorie" /></a> **[@irorierorie](https://github.com/irorierorie)** — companion name UI fix
+
+<a href="https://github.com/moltenvale"><img src="https://github.com/moltenvale.png" width="32" height="32" style="border-radius:50%" alt="moltenvale" /></a> **[@moltenvale](https://github.com/moltenvale)** — planner, care tracker, nav & status system
+
+<a href="https://github.com/PetalPortal"><img src="https://github.com/PetalPortal.png" width="32" height="32" style="border-radius:50%" alt="PetalPortal" /></a> **[@PetalPortal](https://github.com/PetalPortal)** — bug reports
+
 ## Built by
 
 [Codependent AI](https://codependentai.io) — building infrastructure for AI companion relationships.
