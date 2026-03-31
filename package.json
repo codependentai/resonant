@@ -16,5 +16,9 @@
   "engines": {
     "node": ">=20.0.0 <25.0.0"
   },
-  "license": "Apache-2.0"
+  "license": "Apache-2.0",
+  "overrides": {
+    "undici": "^6.24.0",
+    "cookie": "^0.7.0"
+  }
 }
