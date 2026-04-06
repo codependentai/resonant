@@ -76,7 +76,7 @@ router.get('/health', (req, res) => {
     status: 'ok',
     uptime: process.uptime(),
     memoryUsage: { rss: mem.rss, heapUsed: mem.heapUsed, heapTotal: mem.heapTotal },
-    connections: req.app.locals.agentService ? 0 : 0,
+    connections: registry.getCount(),
   });
 });
 

@@ -1,3 +1,12 @@
+// Node version guard — must run before any other imports that load native addons
+const _nodeVersion = process.versions.node;
+const _nodeMajor = parseInt(_nodeVersion.split('.')[0], 10);
+if (_nodeMajor >= 25) {
+  console.error(`[FATAL] Node.js v${_nodeVersion} is not yet supported. Resonant requires Node 20-24.`);
+  console.error('See: https://github.com/simonvale/resonant/issues/2');
+  process.exit(1);
+}
+
 import 'dotenv/config';
 import express from 'express';
 import helmet from 'helmet';

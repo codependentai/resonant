@@ -84,7 +84,8 @@ function getDefaultWakePrompts(userName: string): Record<string, string> {
   };
 }
 
-function parseWakePromptsFile(filePath: string, userName: string): Record<string, string> {
+/** @internal Exported for testing */
+export function parseWakePromptsFile(filePath: string, userName: string): Record<string, string> {
   const defaults = getDefaultWakePrompts(userName);
 
   if (!existsSync(filePath)) {
@@ -126,7 +127,7 @@ function parseWakePromptsFile(filePath: string, userName: string): Record<string
 
 // --- Default schedule definitions ---
 
-interface TaskDefinition {
+export interface TaskDefinition {
   wakeType: string;
   label: string;
   cronExpr: string;
@@ -135,7 +136,8 @@ interface TaskDefinition {
   freshSession?: boolean; // If true, creates a new session
 }
 
-const DEFAULT_TASKS: TaskDefinition[] = [
+/** @internal Exported for testing */
+export const DEFAULT_TASKS: TaskDefinition[] = [
   { wakeType: 'morning', label: '8:00 AM — Morning', cronExpr: '0 8 * * *', category: 'checkin', conditional: true },
   { wakeType: 'midday', label: '1:00 PM — Midday', cronExpr: '0 13 * * *', category: 'checkin', conditional: true },
   { wakeType: 'evening', label: '9:00 PM — Evening', cronExpr: '0 21 * * *', category: 'checkin' },
@@ -153,8 +155,8 @@ interface ManagedTask {
   category: 'wake' | 'checkin' | 'handoff' | 'failsafe' | 'routine';
 }
 
-// Validate a cron expression without scheduling it
-function isValidCron(expr: string): boolean {
+/** @internal Exported for testing */
+export function isValidCron(expr: string): boolean {
   try {
     const test = new Cron(expr, { paused: true });
     test.stop();

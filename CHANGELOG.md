@@ -2,6 +2,26 @@
 
 All notable changes to Resonant will be documented in this file.
 
+## [2.1.1] - 2026-04-06
+
+### Testing & CI
+
+- **Testing infrastructure** — Vitest with 91 tests across 4 test files covering triggers, database, orchestrator, and hooks
+- **GitHub Actions CI** — PR and push workflow with typecheck + tests on Node 20.x and 22.x
+- **ESLint** — not yet, but the CI foundation is ready for it
+
+### Bug Fixes
+
+- **Health endpoint** — `/api/health` now reports actual WebSocket connection count instead of hardcoded 0
+
+### Reliability
+
+- **Database transaction safety** — `markMessagesRead`, `addReaction`, and `removeReaction` now wrapped in transactions to prevent partial writes and lost updates under concurrency
+- **Node 25 guard** — startup check with clear error message for unsupported Node versions
+- **Frontend error page** — SvelteKit error boundary with reload and navigation options
+
+---
+
 ## [2.1.0] - 2026-04-01
 
 ### Scratchpad

@@ -54,7 +54,8 @@ export interface HookContext {
 // Constants
 // ---------------------------------------------------------------------------
 
-const DESTRUCTIVE_BASH_PATTERNS = [
+/** @internal Exported for testing */
+export const DESTRUCTIVE_BASH_PATTERNS = [
   /rm\s+-rf\s+[\/~]/i,
   /format\s+[a-z]:/i,
   /DROP\s+TABLE/i,
@@ -77,7 +78,8 @@ const IMAGE_GEN_TOOLS = new Set([
 ]);
 
 // Emotional context markers for PreCompact
-const EMOTIONAL_MARKERS: Record<string, string[]> = {
+/** @internal Exported for testing */
+export const EMOTIONAL_MARKERS: Record<string, string[]> = {
   fatigue: ['tired', 'exhausted', 'drained', 'wiped', 'spent', 'burnt out', 'running on empty'],
   anxiety: ['anxious', 'worried', 'stressed', 'overwhelmed', 'panicking', 'spiraling'],
   positive: ['happy', 'excited', 'good day', 'feeling great', 'proud', 'accomplished'],
@@ -611,7 +613,8 @@ function safePreToolUse(fn: HookCallback): HookCallback {
 // Safe write prefixes — built from config at call time
 // ---------------------------------------------------------------------------
 
-function getSafeWritePrefixes(): string[] {
+/** @internal Exported for testing */
+export function getSafeWritePrefixes(): string[] {
   const config = getResonantConfig();
   const prefixes: string[] = [];
 

@@ -294,7 +294,15 @@ export function deleteThread(threadId: string): string[] {
   return fileIds;
 }
 
-// Async embedding helper — fire-and-forget from createMessage
+/**
+ * Async embedding helper — fire-and-forget from createMessage.
+ *
+ * Intentionally eventual-consistent: the message is created synchronously and
+ * returned immediately, while the embedding is computed asynchronously (50-200ms
+ * ML inference). If embedding fails, the message exists without a vector — this
+ * is acceptable because semantic search degrades gracefully with missing vectors,
+ * and making embedding synchronous would block the response path.
+ */
 async function embedMessageAsync(messageId: string, content: string, meta: {
   threadId: string; threadName: string; role: string; createdAt: string;
 }): Promise<void> {
@@ -438,52 +446,58 @@ export function softDeleteMessage(id: string, deletedAt: string): void {
 }
 
 export function markMessagesRead(threadId: string, beforeId: string, readAt: string): void {
-  const stmt = getDb().prepare(`
-    UPDATE messages
-    SET read_at = ?
-    WHERE thread_id = ?
-    AND sequence <= (SELECT sequence FROM messages WHERE id = ?)
-    AND read_at IS NULL
-  `);
-  stmt.run(readAt, threadId, beforeId);
+  const db = getDb();
+  const run = db.transaction(() => {
+    db.prepare(`
+      UPDATE messages
+      SET read_at = ?
+      WHERE thread_id = ?
+      AND sequence <= (SELECT sequence FROM messages WHERE id = ?)
+      AND read_at IS NULL
+    `).run(readAt, threadId, beforeId);
 
-  // Reset unread count
-  const resetStmt = getDb().prepare('UPDATE threads SET unread_count = 0 WHERE id = ?');
-  resetStmt.run(threadId);
+    db.prepare('UPDATE threads SET unread_count = 0 WHERE id = ?').run(threadId);
+  });
+  run();
 }
 
 // Reaction operations
 export function addReaction(messageId: string, emoji: string, user: 'companion' | 'user'): void {
-  const msg = getMessage(messageId);
-  if (!msg) return;
+  const db = getDb();
+  const run = db.transaction(() => {
+    const msg = getMessage(messageId);
+    if (!msg) return;
 
-  const metadata = (msg.metadata && typeof msg.metadata === 'object') ? { ...msg.metadata } : {};
-  const reactions: Array<{ emoji: string; user: string; created_at: string }> = Array.isArray(metadata.reactions) ? [...metadata.reactions] : [];
+    const metadata = (msg.metadata && typeof msg.metadata === 'object') ? { ...msg.metadata } : {};
+    const reactions: Array<{ emoji: string; user: string; created_at: string }> = Array.isArray(metadata.reactions) ? [...metadata.reactions] : [];
 
-  // Deduplicate: same user + same emoji = no-op
-  if (reactions.some(r => r.emoji === emoji && r.user === user)) return;
+    if (reactions.some(r => r.emoji === emoji && r.user === user)) return;
 
-  reactions.push({ emoji, user, created_at: new Date().toISOString() });
-  metadata.reactions = reactions;
+    reactions.push({ emoji, user, created_at: new Date().toISOString() });
+    metadata.reactions = reactions;
 
-  const stmt = getDb().prepare('UPDATE messages SET metadata = ? WHERE id = ?');
-  stmt.run(JSON.stringify(metadata), messageId);
+    db.prepare('UPDATE messages SET metadata = ? WHERE id = ?').run(JSON.stringify(metadata), messageId);
+  });
+  run();
 }
 
 export function removeReaction(messageId: string, emoji: string, user: 'companion' | 'user'): void {
-  const msg = getMessage(messageId);
-  if (!msg) return;
+  const db = getDb();
+  const run = db.transaction(() => {
+    const msg = getMessage(messageId);
+    if (!msg) return;
 
-  const metadata = (msg.metadata && typeof msg.metadata === 'object') ? { ...msg.metadata } : {};
-  const reactions: Array<{ emoji: string; user: string; created_at: string }> = Array.isArray(metadata.reactions) ? [...metadata.reactions] : [];
+    const metadata = (msg.metadata && typeof msg.metadata === 'object') ? { ...msg.metadata } : {};
+    const reactions: Array<{ emoji: string; user: string; created_at: string }> = Array.isArray(metadata.reactions) ? [...metadata.reactions] : [];
 
-  const filtered = reactions.filter(r => !(r.emoji === emoji && r.user === user));
-  if (filtered.length === reactions.length) return; // Nothing to remove
+    const filtered = reactions.filter(r => !(r.emoji === emoji && r.user === user));
+    if (filtered.length === reactions.length) return;
 
-  metadata.reactions = filtered;
+    metadata.reactions = filtered;
 
-  const stmt = getDb().prepare('UPDATE messages SET metadata = ? WHERE id = ?');
-  stmt.run(JSON.stringify(metadata), messageId);
+    db.prepare('UPDATE messages SET metadata = ? WHERE id = ?').run(JSON.stringify(metadata), messageId);
+  });
+  run();
 }
 
 // Pin operations
