@@ -14,6 +14,8 @@
 
 <p align="center"><em>A relational AI companion framework built on Claude Code Agent SDK.<br/>Your AI remembers, reaches out, and grows — inside the security model you already trust.</em></p>
 
+<p align="center"><em>An open-source implementation of the relational-AI thesis: intelligence is plural, social, and persistent. Built as a natural-language harness on the Claude Agent SDK, with hooks that surface context before the model sees the prompt.</em></p>
+
 <p align="center">
   <a href="https://x.com/codependent_ai"><img src="https://img.shields.io/badge/𝕏-@codependent__ai-000000?logo=x&logoColor=white" alt="X/Twitter" /></a>
   <a href="https://tiktok.com/@codependentai"><img src="https://img.shields.io/badge/TikTok-@codependentai-000000?logo=tiktok&logoColor=white" alt="TikTok" /></a>
@@ -218,6 +220,33 @@ Most agent harnesses give the *user* scheduling tools. Resonant gives them to th
 - Push notification device management
 - Agent session history
 
+## Research foundations
+
+Resonant didn't emerge in isolation. Three papers describe — from the academic side — what we're building here. They're worth reading if you want to understand why this project exists in the shape it does.
+
+### Why: intelligence is relational
+**Evans, Bratton, Agüera y Arcas — *Agentic AI and the next intelligence explosion* (2026)** &nbsp;[arXiv:2603.20639](https://arxiv.org/abs/2603.20639)
+
+The "AI singularity" framed as a single godlike mind is the wrong picture. Intelligence is fundamentally plural, social, relational — even within current models, sophisticated reasoning happens through internal "societies of thought." The future isn't one monolithic system; it's **human-AI hybrid actors** where collective agency transcends individual control. Alignment shouldn't be dyadic (RLHF) — it should be institutional, with digital protocols modeled on organizations and markets. *"The next intelligence explosion will not be a single silicon brain, but a complex, combinatorial society specializing and sprawling like a city."*
+
+Resonant exists to be substrate for that future. A persistent companion that lives with you, remembers you, and reaches back — built so you own it rather than rent it from a vendor.
+
+### Architecture: harness as natural-language artifact
+**Pan et al. — *Natural-Language Agent Harnesses* (2026)** &nbsp;[arXiv:2603.25723](https://www.alphaxiv.org/abs/2603.25723)
+
+Agent harness design is usually buried in controller code, which makes harnesses hard to study, compare, transfer, or fork. NLAH argues harness logic should be externalized as portable, editable natural-language artifacts, executed by a runtime through explicit contracts.
+
+That's exactly what Resonant is. The system prompt, hooks, orchestrator wake prompts, skills, and `CLAUDE.md` are all natural-language artifacts. The Claude Agent SDK is the runtime. Anyone can read the harness, edit it, port it, fork it. Nothing critical is hidden in compiled code.
+
+### Memory: extract, retrieve, inject
+**Mem0 — *Building Production-Ready AI Agents with Scalable Long-Term Memory*** &nbsp;[arXiv:2504.19413](https://arxiv.org/abs/2504.19413)
+
+LLMs can't maintain coherence across long conversations because context windows are fixed. Mem0's pattern: dynamically extract salient information from conversations, store it, retrieve it semantically, and inject relevant memories into context **before** the model processes the prompt. Their benchmarks against full-context approaches show 26% accuracy improvement, 91% lower p95 latency, and ~90% token savings.
+
+Resonant implements the same pattern in [`hooks.ts`](packages/backend/src/services/hooks.ts) — `buildOrientationContext` injects rich context (recent reactions, emotional markers, presence state, life status, available tools) before every query. The hooks system is backend-agnostic: it works with Claude Code's native memory system, with any MCP memory server you plug in, or with a custom store. The agent decides when to reach for memory tools; the hooks make sure relevant context is already there when it does.
+
+See [`docs/MEMORY_ARCHITECTURE.md`](docs/MEMORY_ARCHITECTURE.md) for the full memory architecture, including the warm/cold tiering model and design philosophy.
+
 ## Project Structure
 
 ```
@@ -236,9 +265,10 @@ resonant/
 ├── tools/
 │   └── sc.mjs           # Agent CLI (reactions, search, timers, etc.)
 ├── docs/
-│   ├── HOOKS.md          # Context injection documentation
-│   ├── TOOLS.md          # Built-in agent tools reference
-│   └── semantic-search.md # Semantic search setup & usage
+│   ├── HOOKS.md             # Context injection implementation reference
+│   ├── MEMORY_ARCHITECTURE.md # Memory model, tiering, design philosophy
+│   ├── TOOLS.md             # Built-in agent tools reference
+│   └── semantic-search.md   # Semantic search setup & usage
 └── scripts/
     └── setup.mjs        # Interactive setup wizard
 ```
