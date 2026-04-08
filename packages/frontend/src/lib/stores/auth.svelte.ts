@@ -6,6 +6,10 @@ let authRequired = $state(true);
 let retryTimeout: ReturnType<typeof setTimeout> | null = null;
 let retryAttempt = 0;
 const RETRY_DELAYS = [1000, 2000, 4000, 8000, 15000, 30000];
+const MAX_RETRIES = RETRY_DELAYS.length;
+
+// Dedupe concurrent callers (e.g. layout + login page on first mount)
+let inFlight: Promise<boolean> | null = null;
 
 function getRetryDelay(): number {
   return RETRY_DELAYS[Math.min(retryAttempt, RETRY_DELAYS.length - 1)];
@@ -18,8 +22,10 @@ function clearRetry(): void {
   }
 }
 
-export async function checkAuth(): Promise<boolean> {
-  checking = true;
+async function checkAuthInternal(isRetry: boolean): Promise<boolean> {
+  // Only the user-initiated call flips the spinner — background retries
+  // must not re-flash the layout loading screen.
+  if (!isRetry) checking = true;
 
   try {
     const response = await fetch('/api/auth/check', {
@@ -33,7 +39,7 @@ export async function checkAuth(): Promise<boolean> {
     } else {
       authenticated = false;
     }
-    // Success — reset retry state
+    // Server responded — reset retry state regardless of status
     retryAttempt = 0;
     clearRetry();
     return authenticated;
@@ -41,14 +47,28 @@ export async function checkAuth(): Promise<boolean> {
     // Network error (server unreachable) — schedule retry with backoff
     authenticated = false;
     retryAttempt++;
-    const delay = getRetryDelay();
     clearRetry();
+    if (retryAttempt >= MAX_RETRIES) {
+      // Give up — let the UI render the login page instead of looping forever
+      return false;
+    }
+    const delay = getRetryDelay();
     retryTimeout = setTimeout(() => {
-      checkAuth();
+      checkAuthInternal(true);
     }, delay);
     return false;
   } finally {
-    checking = false;
+    if (!isRetry) checking = false;
+  }
+}
+
+export async function checkAuth(): Promise<boolean> {
+  if (inFlight) return inFlight;
+  inFlight = checkAuthInternal(false);
+  try {
+    return await inFlight;
+  } finally {
+    inFlight = null;
   }
 }
 
@@ -92,6 +112,7 @@ export async function logout(): Promise<void> {
 export function stopAuthPolling(): void {
   clearRetry();
   retryAttempt = 0;
+  inFlight = null;
 }
 
 export function isAuthenticated() {

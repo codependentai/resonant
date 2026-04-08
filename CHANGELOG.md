@@ -2,6 +2,15 @@
 
 All notable changes to Resonant will be documented in this file.
 
+## [2.1.2] - 2026-04-08
+
+### Bug Fixes
+
+- **Frontend stuck on loading screen with `/api/auth/check` 429 loop** (#11) — `checkAuth()` retried recursively with no max-attempts cap and re-flashed the layout spinner on every background retry. Two independent callers (layout + login page) created concurrent retry chains sharing one timeout handle. Fix: cap retries at 6 attempts then give up, only flip the spinner on the user-initiated call (not background retries), dedupe concurrent callers via an in-flight promise lock.
+- **Rate limit too tight for normal frontend usage** — bumped `/api` rate limit from 120 → 600 req/min and exempted `/api/auth/check` from throttling entirely (cheap cookie lookup, never throttle).
+
+---
+
 ## [2.1.1] - 2026-04-06
 
 ### Testing & CI

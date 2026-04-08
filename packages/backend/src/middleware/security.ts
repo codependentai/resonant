@@ -3,11 +3,14 @@ import type { Request, Response, NextFunction } from 'express';
 
 export const rateLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 120,
+  max: 600,
   message: 'Too many requests from this IP, please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
   validate: { trustProxy: false },
+  // /auth/check is a cheap cookie lookup the frontend may poll on reconnect —
+  // never throttle it, or the UI gets stuck in a 429 loop on the loading screen.
+  skip: (req) => req.path === '/auth/check',
 });
 
 export const loginRateLimiter = rateLimit({
