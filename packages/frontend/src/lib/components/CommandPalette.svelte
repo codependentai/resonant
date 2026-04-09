@@ -14,7 +14,7 @@
   }>();
 
   let selectedIndex = $state(0);
-  let listEl: HTMLDivElement;
+  let listEl = $state<HTMLDivElement | undefined>();
 
   // Group and filter commands
   let grouped = $derived.by(() => {

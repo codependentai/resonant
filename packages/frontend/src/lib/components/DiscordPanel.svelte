@@ -567,18 +567,20 @@
           <p class="loading">Loading settings...</p>
         {:else if settings}
           <div class="settings-form">
-            <div class="form-group">
-              <label class="form-label">Debounce window (ms)</label>
+            <label class="form-group">
+              <span class="form-label">Debounce window (ms)</span>
               <input type="number" class="form-input" bind:value={settings.debounceMs} onchange={() => settingsDirty = true} />
               <span class="form-hint">Combines rapid messages within this window</span>
-            </div>
+            </label>
 
             <div class="form-group">
-              <label class="form-label">Require @mention in guilds</label>
+              <span class="form-label">Require @mention in guilds</span>
               <div class="toggle-row compact">
                 <button
                   class="toggle-switch small"
                   class:on={settings.requireMentionInGuilds}
+                  aria-label="Require @mention in guilds"
+                  aria-pressed={settings.requireMentionInGuilds}
                   onclick={() => { settings!.requireMentionInGuilds = !settings!.requireMentionInGuilds; settingsDirty = true; }}
                 >
                   <span class="toggle-knob"></span>
@@ -586,61 +588,61 @@
               </div>
             </div>
 
-            <div class="form-group">
-              <label class="form-label">Pairing expiry (hours)</label>
+            <label class="form-group">
+              <span class="form-label">Pairing expiry (hours)</span>
               <input type="number" class="form-input" step="0.5"
                 value={settings.pairingExpiryMs / 3600000}
                 onchange={(e) => { settings!.pairingExpiryMs = parseFloat((e.target as HTMLInputElement).value) * 3600000; settingsDirty = true; }}
               />
-            </div>
+            </label>
 
-            <div class="form-group">
-              <label class="form-label">Mary active threshold (minutes)</label>
+            <label class="form-group">
+              <span class="form-label">Mary active threshold (minutes)</span>
               <input type="number" class="form-input" bind:value={settings.maryActiveThresholdMin} onchange={() => settingsDirty = true} />
               <span class="form-hint">Defer non-Mary messages when she's been active within this window</span>
-            </div>
+            </label>
 
-            <div class="form-group">
-              <label class="form-label">Defer poll interval (seconds)</label>
+            <label class="form-group">
+              <span class="form-label">Defer poll interval (seconds)</span>
               <input type="number" class="form-input"
                 value={settings.deferPollIntervalMs / 1000}
                 onchange={(e) => { settings!.deferPollIntervalMs = parseFloat((e.target as HTMLInputElement).value) * 1000; settingsDirty = true; }}
               />
               <span class="form-hint">Requires gateway restart to take effect</span>
-            </div>
+            </label>
 
-            <div class="form-group">
-              <label class="form-label">Defer max age (minutes)</label>
+            <label class="form-group">
+              <span class="form-label">Defer max age (minutes)</span>
               <input type="number" class="form-input"
                 value={settings.deferMaxAgeMs / 60000}
                 onchange={(e) => { settings!.deferMaxAgeMs = parseFloat((e.target as HTMLInputElement).value) * 60000; settingsDirty = true; }}
               />
               <span class="form-hint">Drop deferred messages older than this</span>
-            </div>
+            </label>
 
-            <div class="form-group">
-              <label class="form-label">Allowed guilds (IDs)</label>
+            <label class="form-group">
+              <span class="form-label">Allowed guilds (IDs)</span>
               <input type="text" class="form-input"
                 value={settings.allowedGuilds.join(', ')}
                 onchange={(e) => { settings!.allowedGuilds = (e.target as HTMLInputElement).value.split(',').map(s => s.trim()).filter(Boolean); settingsDirty = true; }}
               />
-            </div>
+            </label>
 
-            <div class="form-group">
-              <label class="form-label">Active channels (no @mention needed)</label>
+            <label class="form-group">
+              <span class="form-label">Active channels (no @mention needed)</span>
               <input type="text" class="form-input"
                 value={settings.activeChannels.join(', ')}
                 onchange={(e) => { settings!.activeChannels = (e.target as HTMLInputElement).value.split(',').map(s => s.trim()).filter(Boolean); settingsDirty = true; }}
               />
-            </div>
+            </label>
 
-            <div class="form-group">
-              <label class="form-label">Allowed users (IDs)</label>
+            <label class="form-group">
+              <span class="form-label">Allowed users (IDs)</span>
               <input type="text" class="form-input"
                 value={settings.allowedUsers.join(', ')}
                 onchange={(e) => { settings!.allowedUsers = (e.target as HTMLInputElement).value.split(',').map(s => s.trim()).filter(Boolean); settingsDirty = true; }}
               />
-            </div>
+            </label>
 
             {#if settingsDirty}
               <button class="btn btn-primary save-btn" onclick={saveSettings} disabled={settingsLoading}>
@@ -689,33 +691,33 @@
                   </button>
                   {#if expandedRules.has(key)}
                     <div class="rule-body">
-                      <div class="form-group">
-                        <label class="form-label">Name</label>
+                      <label class="form-group">
+                        <span class="form-label">Name</span>
                         <input type="text" class="form-input" bind:value={rule.name} />
-                      </div>
-                      <div class="form-group">
-                        <label class="form-label">Context</label>
+                      </label>
+                      <label class="form-group">
+                        <span class="form-label">Context</span>
                         <textarea class="form-textarea" bind:value={rule.context} rows="4"></textarea>
-                      </div>
+                      </label>
                       <div class="form-group">
-                        <label class="form-label">Require @mention</label>
-                        <button class="toggle-switch small" class:on={rule.requireMention ?? true} onclick={() => rule.requireMention = !(rule.requireMention ?? true)}>
+                        <span class="form-label">Require @mention</span>
+                        <button class="toggle-switch small" class:on={rule.requireMention ?? true} aria-label="Require @mention" aria-pressed={rule.requireMention ?? true} onclick={() => rule.requireMention = !(rule.requireMention ?? true)}>
                           <span class="toggle-knob"></span>
                         </button>
                       </div>
                       <div class="form-group">
-                        <label class="form-label">Allow public responses</label>
-                        <button class="toggle-switch small" class:on={rule.allowPublicResponses ?? false} onclick={() => rule.allowPublicResponses = !(rule.allowPublicResponses ?? false)}>
+                        <span class="form-label">Allow public responses</span>
+                        <button class="toggle-switch small" class:on={rule.allowPublicResponses ?? false} aria-label="Allow public responses" aria-pressed={rule.allowPublicResponses ?? false} onclick={() => rule.allowPublicResponses = !(rule.allowPublicResponses ?? false)}>
                           <span class="toggle-knob"></span>
                         </button>
                       </div>
-                      <div class="form-group">
-                        <label class="form-label">Ignored channels (IDs)</label>
+                      <label class="form-group">
+                        <span class="form-label">Ignored channels (IDs)</span>
                         <input type="text" class="form-input"
                           value={(rule.ignoredChannels || []).join(', ')}
                           onchange={(e) => rule.ignoredChannels = (e.target as HTMLInputElement).value.split(',').map(s => s.trim()).filter(Boolean)}
                         />
-                      </div>
+                      </label>
                       <div class="rule-actions">
                         <button class="btn btn-primary" onclick={() => saveRule('server', rule)} disabled={actionLoading === `save-server-${rule.id}`}>
                           {actionLoading === `save-server-${rule.id}` ? 'Saving...' : 'Save'}
@@ -730,14 +732,14 @@
               {/each}
               {#if addingRule === 'server'}
                 <div class="rule-card add-form">
-                  <div class="form-group">
-                    <label class="form-label">Server ID</label>
+                  <label class="form-group">
+                    <span class="form-label">Server ID</span>
                     <input type="text" class="form-input" bind:value={newRuleId} placeholder="Discord server ID" />
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">Name</label>
+                  </label>
+                  <label class="form-group">
+                    <span class="form-label">Name</span>
                     <input type="text" class="form-input" bind:value={newRuleName} placeholder="Server name" />
-                  </div>
+                  </label>
                   <div class="rule-actions">
                     <button class="btn btn-primary" onclick={confirmAddRule} disabled={!newRuleId || !newRuleName}>Add</button>
                     <button class="btn btn-muted" onclick={cancelAddRule}>Cancel</button>
@@ -762,40 +764,40 @@
                   </button>
                   {#if expandedRules.has(key)}
                     <div class="rule-body">
-                      <div class="form-group">
-                        <label class="form-label">Name</label>
+                      <label class="form-group">
+                        <span class="form-label">Name</span>
                         <input type="text" class="form-input" bind:value={rule.name} />
-                      </div>
-                      <div class="form-group">
-                        <label class="form-label">Server ID</label>
+                      </label>
+                      <label class="form-group">
+                        <span class="form-label">Server ID</span>
                         <input type="text" class="form-input" bind:value={rule.serverId} />
-                      </div>
-                      <div class="form-group">
-                        <label class="form-label">Context</label>
+                      </label>
+                      <label class="form-group">
+                        <span class="form-label">Context</span>
                         <textarea class="form-textarea" bind:value={rule.context} rows="3"></textarea>
-                      </div>
+                      </label>
                       <div class="form-group inline-toggles">
                         <div class="toggle-item">
-                          <label class="form-label">Require @mention</label>
-                          <button class="toggle-switch small" class:on={rule.requireMention ?? false} onclick={() => rule.requireMention = !(rule.requireMention ?? false)}>
+                          <span class="form-label">Require @mention</span>
+                          <button class="toggle-switch small" class:on={rule.requireMention ?? false} aria-label="Require @mention" aria-pressed={rule.requireMention ?? false} onclick={() => rule.requireMention = !(rule.requireMention ?? false)}>
                             <span class="toggle-knob"></span>
                           </button>
                         </div>
                         <div class="toggle-item">
-                          <label class="form-label">Always listen</label>
-                          <button class="toggle-switch small" class:on={rule.alwaysListen ?? false} onclick={() => rule.alwaysListen = !(rule.alwaysListen ?? false)}>
+                          <span class="form-label">Always listen</span>
+                          <button class="toggle-switch small" class:on={rule.alwaysListen ?? false} aria-label="Always listen" aria-pressed={rule.alwaysListen ?? false} onclick={() => rule.alwaysListen = !(rule.alwaysListen ?? false)}>
                             <span class="toggle-knob"></span>
                           </button>
                         </div>
                         <div class="toggle-item">
-                          <label class="form-label">Ignore</label>
-                          <button class="toggle-switch small" class:on={rule.ignore ?? false} onclick={() => rule.ignore = !(rule.ignore ?? false)}>
+                          <span class="form-label">Ignore</span>
+                          <button class="toggle-switch small" class:on={rule.ignore ?? false} aria-label="Ignore" aria-pressed={rule.ignore ?? false} onclick={() => rule.ignore = !(rule.ignore ?? false)}>
                             <span class="toggle-knob"></span>
                           </button>
                         </div>
                         <div class="toggle-item">
-                          <label class="form-label">Read-only</label>
-                          <button class="toggle-switch small" class:on={rule.readOnly ?? false} onclick={() => rule.readOnly = !(rule.readOnly ?? false)}>
+                          <span class="form-label">Read-only</span>
+                          <button class="toggle-switch small" class:on={rule.readOnly ?? false} aria-label="Read-only" aria-pressed={rule.readOnly ?? false} onclick={() => rule.readOnly = !(rule.readOnly ?? false)}>
                             <span class="toggle-knob"></span>
                           </button>
                         </div>
@@ -814,14 +816,14 @@
               {/each}
               {#if addingRule === 'channel'}
                 <div class="rule-card add-form">
-                  <div class="form-group">
-                    <label class="form-label">Channel ID</label>
+                  <label class="form-group">
+                    <span class="form-label">Channel ID</span>
                     <input type="text" class="form-input" bind:value={newRuleId} placeholder="Discord channel ID" />
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">Name</label>
+                  </label>
+                  <label class="form-group">
+                    <span class="form-label">Name</span>
                     <input type="text" class="form-input" bind:value={newRuleName} placeholder="Channel name" />
-                  </div>
+                  </label>
                   <div class="rule-actions">
                     <button class="btn btn-primary" onclick={confirmAddRule} disabled={!newRuleId || !newRuleName}>Add</button>
                     <button class="btn btn-muted" onclick={cancelAddRule}>Cancel</button>
@@ -846,40 +848,40 @@
                   </button>
                   {#if expandedRules.has(key)}
                     <div class="rule-body">
-                      <div class="form-group">
-                        <label class="form-label">Name</label>
+                      <label class="form-group">
+                        <span class="form-label">Name</span>
                         <input type="text" class="form-input" bind:value={rule.name} />
-                      </div>
-                      <div class="form-group">
-                        <label class="form-label">Trust level</label>
+                      </label>
+                      <label class="form-group">
+                        <span class="form-label">Trust level</span>
                         <select class="form-input" bind:value={rule.trustLevel}>
                           <option value="full">Full</option>
                           <option value="standard">Standard</option>
                           <option value="limited">Limited</option>
                         </select>
-                      </div>
-                      <div class="form-group">
-                        <label class="form-label">Relationship</label>
+                      </label>
+                      <label class="form-group">
+                        <span class="form-label">Relationship</span>
                         <input type="text" class="form-input" bind:value={rule.relationship} />
-                      </div>
-                      <div class="form-group">
-                        <label class="form-label">Context</label>
+                      </label>
+                      <label class="form-group">
+                        <span class="form-label">Context</span>
                         <textarea class="form-textarea" bind:value={rule.context} rows="3"></textarea>
-                      </div>
-                      <div class="form-group">
-                        <label class="form-label">Allowed servers (IDs)</label>
+                      </label>
+                      <label class="form-group">
+                        <span class="form-label">Allowed servers (IDs)</span>
                         <input type="text" class="form-input"
                           value={(rule.allowedServers || []).join(', ')}
                           onchange={(e) => rule.allowedServers = (e.target as HTMLInputElement).value.split(',').map(s => s.trim()).filter(Boolean)}
                         />
-                      </div>
-                      <div class="form-group">
-                        <label class="form-label">Blocked servers (IDs)</label>
+                      </label>
+                      <label class="form-group">
+                        <span class="form-label">Blocked servers (IDs)</span>
                         <input type="text" class="form-input"
                           value={(rule.blockedServers || []).join(', ')}
                           onchange={(e) => rule.blockedServers = (e.target as HTMLInputElement).value.split(',').map(s => s.trim()).filter(Boolean)}
                         />
-                      </div>
+                      </label>
                       <div class="rule-actions">
                         <button class="btn btn-primary" onclick={() => saveRule('user', rule)} disabled={actionLoading === `save-user-${rule.id}`}>
                           {actionLoading === `save-user-${rule.id}` ? 'Saving...' : 'Save'}
@@ -894,14 +896,14 @@
               {/each}
               {#if addingRule === 'user'}
                 <div class="rule-card add-form">
-                  <div class="form-group">
-                    <label class="form-label">User ID</label>
+                  <label class="form-group">
+                    <span class="form-label">User ID</span>
                     <input type="text" class="form-input" bind:value={newRuleId} placeholder="Discord user ID" />
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">Name</label>
+                  </label>
+                  <label class="form-group">
+                    <span class="form-label">Name</span>
                     <input type="text" class="form-input" bind:value={newRuleName} placeholder="User name" />
-                  </div>
+                  </label>
                   <div class="rule-actions">
                     <button class="btn btn-primary" onclick={confirmAddRule} disabled={!newRuleId || !newRuleName}>Add</button>
                     <button class="btn btn-muted" onclick={cancelAddRule}>Cancel</button>

@@ -80,6 +80,7 @@
 
 <div class="search-overlay" role="dialog" aria-label="Search messages">
   <button class="search-backdrop" onclick={() => onclose?.()} aria-label="Close search"></button>
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div class="search-panel" onkeydown={handleKeydown}>
     <div class="search-header">
       <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

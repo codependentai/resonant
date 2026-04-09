@@ -285,6 +285,7 @@
             {#if !collapsed.has(key)}
               <div class="task-list">
                 {#each group.tasks as task (task.id)}
+                  <!-- svelte-ignore a11y_no_static_element_interactions -->
                   <div
                     class="task-row"
                     class:drag-over={dragOverId === task.id}
@@ -512,6 +513,4 @@
     border-radius: 10px; cursor: pointer; background: var(--bg-input);
     padding: 2px; flex-shrink: 0;
   }
-
-  .edit-form { display: flex; flex-direction: column; gap: var(--space-2); }
 </style>

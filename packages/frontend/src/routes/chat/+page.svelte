@@ -1145,7 +1145,7 @@
       transition: opacity 0.3s;
     }
 
-    .sidebar-overlay:is(.open, :has(+ .sidebar.open)) {
+    .sidebar-overlay:has(+ .sidebar.open) {
       opacity: 1;
       pointer-events: auto;
     }

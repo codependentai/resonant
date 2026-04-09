@@ -249,6 +249,7 @@
 {#snippet threadItem(thread: ThreadSummary)}
   {#if renamingThread === thread.id}
     <div class="rename-input-wrapper">
+      <!-- svelte-ignore a11y_autofocus -->
       <input
         class="rename-input"
         type="text"

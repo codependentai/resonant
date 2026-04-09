@@ -79,8 +79,8 @@
 
       {#if showLog}
         <div class="res-form">
-          <div class="res-form-row">
-            <label class="form-label">Flow</label>
+          <label class="res-form-row">
+            <span class="form-label">Flow</span>
             <select bind:value={logFlow} class="res-select">
               <option value="">--</option>
               <option value="none">None</option>
@@ -89,16 +89,16 @@
               <option value="medium">Medium</option>
               <option value="heavy">Heavy</option>
             </select>
-          </div>
+          </label>
           <ResRating label="Energy" value={logEnergy} onchange={(n) => logEnergy = n} />
-          <div class="res-form-row">
-            <label class="form-label">Mood</label>
+          <label class="res-form-row">
+            <span class="form-label">Mood</span>
             <input type="text" bind:value={logMood} class="res-input" placeholder="How are you feeling?" />
-          </div>
-          <div class="res-form-row">
-            <label class="form-label">Notes</label>
+          </label>
+          <label class="res-form-row">
+            <span class="form-label">Notes</span>
             <input type="text" bind:value={logNotes} class="res-input" placeholder="Anything else..." />
-          </div>
+          </label>
           <button class="res-btn res-btn--primary" style="align-self: flex-end;" onclick={logDaily}>Save</button>
         </div>
       {/if}

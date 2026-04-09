@@ -224,13 +224,17 @@
                 onblur={() => saveEdit(item.id)}
               />
             {:else}
-              <span
-                class="sp-item-text"
-                class:clickable={item.type === 'note'}
-                onclick={() => item.type === 'note' && startEdit(item)}
-              >
-                {item.text}
-              </span>
+              {#if item.type === 'note'}
+                <button
+                  type="button"
+                  class="sp-item-text clickable"
+                  onclick={() => startEdit(item)}
+                >
+                  {item.text}
+                </button>
+              {:else}
+                <span class="sp-item-text">{item.text}</span>
+              {/if}
               {#if item.project_name}
                 <span class="sp-project">{item.project_name}</span>
               {/if}
@@ -440,6 +444,13 @@
     font-size: 0.875rem;
     color: var(--text-primary);
     overflow-wrap: anywhere;
+    /* Reset button defaults when sp-item-text is a <button> */
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    font-family: inherit;
+    text-align: left;
   }
 
   .sp-item-text.clickable {

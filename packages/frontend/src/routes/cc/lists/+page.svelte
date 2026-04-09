@@ -138,7 +138,13 @@
       {:else}
         <div class="list-grid">
           {#each lists as list}
-            <div class="list-card-wrap res-card res-card--interactive" onclick={() => selectList(list.id)}>
+            <div
+              class="list-card-wrap res-card res-card--interactive"
+              role="button"
+              tabindex="0"
+              onclick={() => selectList(list.id)}
+              onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectList(list.id); } }}
+            >
               <div class="list-card-content">
                 <span class="list-name">{list.name}</span>
                 <span class="list-count">{list.unchecked_count} of {list.item_count} items</span>
@@ -160,17 +166,6 @@
   .add-item-row { display: flex; gap: var(--space-2); margin-bottom: var(--space-4); }
 
   .item-list { display: flex; flex-direction: column; }
-
-  .list-card {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: var(--space-2);
-    padding: var(--space-5);
-    text-align: center;
-    min-height: 100px;
-    justify-content: center;
-  }
 
   .list-card-wrap {
     display: flex;

@@ -44,7 +44,7 @@
   // Command palette state
   let showCommandPalette = $state(false);
   let commandFilter = $state('');
-  let paletteRef: CommandPalette;
+  let paletteRef = $state<CommandPalette | undefined>();
   let commandRegistry = $derived(getCommandRegistry());
 
   // Can send if there's text or pending attachments
