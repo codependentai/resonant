@@ -23,6 +23,6 @@
   },
   "overrides": {
     "undici": "^6.24.0",
-    "cookie": "^0.7.0"
+    "cookie": "^1.0.0"
   }
 }
