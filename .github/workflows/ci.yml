@@ -22,6 +22,12 @@ jobs:
 
       - run: npm ci
 
+      - name: Build shared (emits .d.ts for backend/frontend imports)
+        run: npm run build --workspace=packages/shared
+
+      - name: SvelteKit sync (generates .svelte-kit/tsconfig.json)
+        run: npm run sync --workspace=packages/frontend
+
       - name: Typecheck
         run: npm run check
 

@@ -7,6 +7,7 @@
     "dev": "vite dev --port 5173",
     "build": "vite build",
     "preview": "vite preview",
+    "sync": "svelte-kit sync",
     "check": "svelte-check --tsconfig ./tsconfig.json"
   },
   "dependencies": {
