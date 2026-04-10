@@ -350,3 +350,9 @@ Apache 2.0 — see [LICENSE](LICENSE). Attribution required.
 ## Built by
 
 [Codependent AI](https://codependentai.io) — building infrastructure for AI companion relationships.
+
+## Support
+
+Built by [Codependent AI](https://codependentai.io).
+
+<a href="https://ko-fi.com/codependentai"><img src="https://img.shields.io/badge/Ko--fi-Support%20Us-ff5e5b?logo=ko-fi&logoColor=white" alt="Ko-fi" /></a>
