@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/codependentai-resonant-badge.png)](https://mseep.ai/app/codependentai-resonant)
+
 <p align="center">
   <img src="docs/banner.png" alt="Resonant" width="720" />
 </p>
