@@ -331,17 +331,19 @@ export class Orchestrator {
       this.pulseInterval = setInterval(() => this.checkPulse(), this.pulseFrequency * 60 * 1000);
     }
 
-    // --- Scribe digest (every 30 minutes) ---
-    const digestEnabled = getConfigBool('digest.enabled', true);
+    // --- Scribe digest ---
+    const cfg = getResonantConfig();
+    const digestEnabled = getConfigBool('scribe.enabled', getConfigBool('digest.enabled', cfg.scribe.enabled));
+    const digestIntervalMinutes = getConfigNumber('scribe.interval_minutes', getConfigNumber('digest.interval_minutes', cfg.scribe.interval_minutes));
     if (digestEnabled) {
       this.digestInterval = setInterval(() => {
         runDigest(this.agent).catch(err => olog(`Digest error: ${err.message}`));
-      }, 30 * 60 * 1000);
+      }, Math.max(1, digestIntervalMinutes) * 60 * 1000);
     }
 
     olog('Timers + Triggers: polling every 60s');
     olog(`Pulse: ${this.pulseEnabled ? `every ${this.pulseFrequency}m` : 'DISABLED'}`);
-    olog(`Scribe digest: ${digestEnabled ? 'every 30m' : 'DISABLED'}`);
+    olog(`Scribe digest: ${digestEnabled ? `every ${Math.max(1, digestIntervalMinutes)}m` : 'DISABLED'}`);
   }
 
   stop(): void {

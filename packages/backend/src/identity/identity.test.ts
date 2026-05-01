@@ -36,6 +36,14 @@ function makeConfig(overrides: Partial<ResonantConfig> = {}): ResonantConfig {
       schedules: {},
       failsafe: { enabled: false, gentle_minutes: 120, concerned_minutes: 720, emergency_minutes: 1440 },
     },
+    scribe: {
+      enabled: true,
+      provider: 'claude-code' as const,
+      model: 'claude-sonnet-4-6',
+      interval_minutes: 30,
+      digest_path: resolve(root, 'data/digests'),
+      min_messages: 5,
+    },
     hooks: { context_injection: true, safe_write_prefixes: [] },
     voice: { enabled: false, elevenlabs_voice_id: '' },
     discord: { enabled: false, owner_user_id: '' },
@@ -138,4 +146,3 @@ describe('identity rendering', () => {
     expect(renderIdentityPrompt(identity, 'claude-code')).toContain('# Echo');
   });
 });
-

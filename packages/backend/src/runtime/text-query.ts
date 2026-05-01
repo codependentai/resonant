@@ -14,10 +14,12 @@ export async function runTextOnlyQuery(params: {
 }): Promise<string> {
   const cfg = getResonantConfig();
   const configuredProvider = params.provider
-    || normalizeProvider(getConfig('digest.provider') || cfg.agent.provider)
+    || normalizeProvider(getConfig('scribe.provider') || getConfig('digest.provider') || cfg.scribe.provider || cfg.agent.provider)
     || 'claude-code';
   const model = params.model
+    || getConfig('scribe.model')
     || getConfig('digest.model')
+    || cfg.scribe.model
     || cfg.agent.model_autonomous
     || cfg.agent.model;
 

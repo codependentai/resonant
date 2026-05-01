@@ -1,0 +1,93 @@
+# Resonant Configuration
+# Copy this to the project root as resonant.yaml and customize.
+# Secrets (API keys, passwords) go in .env instead.
+
+identity:
+  companion_name: "Echo"      # Your AI companion's name
+  user_name: "Alex"            # Your name
+  timezone: "America/New_York" # Your timezone (used for scheduling)
+
+server:
+  port: 3002
+  host: "127.0.0.1"
+  db_path: "./data/resonant.db"
+
+auth:
+  password: ""                 # Empty = no auth (local use). Set a password for remote access.
+
+agent:
+  provider: "claude-code"             # claude-code | openai-codex | openrouter
+  autonomous_provider: "claude-code"
+  cwd: "."                     # Working directory for Claude Agent SDK
+  claude_md_path: "./CLAUDE.md"
+  mcp_json_path: "./.mcp.json"
+  model: "claude-sonnet-4-6"          # Model for interactive messages
+  model_autonomous: "claude-sonnet-4-6" # Model for scheduled/autonomous messages
+  openai_codex_permission: "workspace-write"
+  claude_code:
+    mcp_json_path: "./.mcp.json"
+  openai_codex:
+    permission: "workspace-write"
+  openrouter:
+    base_url: "https://openrouter.ai/api/v1"
+    api_key_env: "OPENROUTER_API_KEY"
+    default_model: ""
+
+orchestrator:
+  enabled: true
+  wake_prompts_path: "./prompts/wake.md"
+  schedules:                   # Override default cron schedules or add custom ones
+    # morning: "0 9 * * *"     # Default: 8:00 AM
+    # midday: "0 14 * * *"     # Default: 1:00 PM
+    # evening: "0 22 * * *"    # Default: 9:00 PM
+    # mid_morning: "30 10 * * *"  # Custom: add any wake type with a cron expression
+    # afternoon: "0 16 * * *"     # Add matching ## section in wake prompts file
+  failsafe:
+    enabled: false             # Set true to enable check-in when user is away
+    gentle_minutes: 120        # First check-in after N minutes of inactivity
+    concerned_minutes: 720     # Escalated check-in
+    emergency_minutes: 1440    # Urgent check-in
+
+scribe:
+  enabled: true
+  provider: "claude-code"      # claude-code | openai-codex | openrouter
+  model: "claude-sonnet-4-6"   # Text-only digest model
+  interval_minutes: 30
+  digest_path: "./data/digests"
+  min_messages: 5
+
+hooks:
+  context_injection: true
+  safe_write_prefixes: []      # Paths the agent is allowed to write to
+
+voice:
+  enabled: false
+  elevenlabs_voice_id: ""      # Your ElevenLabs voice ID
+
+discord:
+  enabled: false
+  owner_user_id: ""            # Your Discord user ID
+
+telegram:
+  enabled: false
+  owner_chat_id: ""            # Your Telegram chat ID
+
+integrations:
+  life_api_url: ""             # URL to a life management API (optional)
+  mind_cloud:
+    enabled: false
+    mcp_url: ""                # Mind Cloud MCP endpoint URL
+
+command_center:
+  enabled: false
+  default_person: "user"
+  currency_symbol: "$"
+  care_categories:
+    toggles: ["breakfast", "lunch", "dinner", "snacks", "medication", "movement", "shower"]
+    ratings: ["sleep", "energy", "wellbeing", "mood"]
+    counters:
+      - name: "water"
+        max: 10
+
+cors:
+  origins: []                  # Additional allowed CORS origins (localhost always included)

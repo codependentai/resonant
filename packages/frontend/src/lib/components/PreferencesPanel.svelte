@@ -31,10 +31,27 @@
       };
     };
     providers?: Record<string, unknown>;
-    orchestrator: { enabled: boolean };
-    voice: { enabled: boolean };
-    discord: { enabled: boolean };
-    telegram: { enabled: boolean };
+    scribe: {
+      enabled: boolean;
+      provider: string;
+      model: string;
+      interval_minutes: number;
+      digest_path: string;
+      min_messages: number;
+    };
+    hooks: { context_injection: boolean; safe_write_prefixes: string[] };
+    orchestrator: { enabled: boolean; wake_prompts_path?: string };
+    voice: { enabled: boolean; elevenlabs_voice_id?: string };
+    discord: { enabled: boolean; owner_user_id?: string };
+    telegram: { enabled: boolean; owner_chat_id?: string };
+    integrations: { life_api_url: string; mind_cloud: { enabled: boolean; mcp_url: string } };
+    command_center: {
+      enabled: boolean;
+      default_person: string;
+      currency_symbol: string;
+      care_categories: { toggles: string[]; ratings: string[]; counters: { name: string; max: number }[] };
+    };
+    cors: { origins: string[] };
     auth: { has_password: boolean };
   }
 
@@ -67,10 +84,32 @@
   let openRouterApiKey = $state('');
   let openRouterApiKeySet = $state(false);
   let clearOpenRouterApiKey = $state(false);
+  let scribeEnabled = $state(true);
+  let scribeProvider = $state('claude-code');
+  let scribeModel = $state('claude-sonnet-4-6');
+  let scribeIntervalMinutes = $state(30);
+  let scribeDigestPath = $state('./data/digests');
+  let scribeMinMessages = $state(5);
+  let contextInjection = $state(true);
+  let safeWritePrefixes = $state('');
   let orchestratorEnabled = $state(true);
+  let wakePromptsPath = $state('./prompts/wake.md');
   let voiceEnabled = $state(false);
+  let elevenlabsVoiceId = $state('');
   let discordEnabled = $state(false);
+  let discordOwnerUserId = $state('');
   let telegramEnabled = $state(false);
+  let telegramOwnerChatId = $state('');
+  let lifeApiUrl = $state('');
+  let mindCloudEnabled = $state(false);
+  let mindCloudMcpUrl = $state('');
+  let commandCenterEnabled = $state(false);
+  let commandCenterDefaultPerson = $state('user');
+  let currencySymbol = $state('$');
+  let careToggles = $state('');
+  let careRatings = $state('');
+  let careCountersJson = $state('[]');
+  let corsOrigins = $state('');
   let newPassword = $state('');
 
   const MODELS = [
@@ -103,7 +142,7 @@
     if (maybePrefs?.error) {
       throw new Error(maybePrefs.error);
     }
-    if (!maybePrefs?.identity || !maybePrefs.agent || !maybePrefs.orchestrator || !maybePrefs.voice || !maybePrefs.discord || !maybePrefs.telegram || !maybePrefs.auth) {
+    if (!maybePrefs?.identity || !maybePrefs.agent || !maybePrefs.scribe || !maybePrefs.hooks || !maybePrefs.orchestrator || !maybePrefs.voice || !maybePrefs.discord || !maybePrefs.telegram || !maybePrefs.integrations || !maybePrefs.command_center || !maybePrefs.cors || !maybePrefs.auth) {
       throw new Error('Preferences response was incomplete');
     }
     return maybePrefs as Preferences;
@@ -142,10 +181,32 @@
       openRouterApiKeySet = !!loadedPrefs.agent.openrouter?.api_key_set;
       openRouterApiKey = '';
       clearOpenRouterApiKey = false;
+      scribeEnabled = loadedPrefs.scribe.enabled;
+      scribeProvider = loadedPrefs.scribe.provider || 'claude-code';
+      scribeModel = loadedPrefs.scribe.model || 'claude-sonnet-4-6';
+      scribeIntervalMinutes = loadedPrefs.scribe.interval_minutes || 30;
+      scribeDigestPath = loadedPrefs.scribe.digest_path || './data/digests';
+      scribeMinMessages = loadedPrefs.scribe.min_messages || 5;
+      contextInjection = loadedPrefs.hooks.context_injection;
+      safeWritePrefixes = (loadedPrefs.hooks.safe_write_prefixes || []).join('\n');
       orchestratorEnabled = loadedPrefs.orchestrator.enabled;
+      wakePromptsPath = loadedPrefs.orchestrator.wake_prompts_path || './prompts/wake.md';
       voiceEnabled = loadedPrefs.voice.enabled;
+      elevenlabsVoiceId = loadedPrefs.voice.elevenlabs_voice_id || '';
       discordEnabled = loadedPrefs.discord.enabled;
+      discordOwnerUserId = loadedPrefs.discord.owner_user_id || '';
       telegramEnabled = loadedPrefs.telegram.enabled;
+      telegramOwnerChatId = loadedPrefs.telegram.owner_chat_id || '';
+      lifeApiUrl = loadedPrefs.integrations.life_api_url || '';
+      mindCloudEnabled = loadedPrefs.integrations.mind_cloud?.enabled || false;
+      mindCloudMcpUrl = loadedPrefs.integrations.mind_cloud?.mcp_url || '';
+      commandCenterEnabled = loadedPrefs.command_center.enabled;
+      commandCenterDefaultPerson = loadedPrefs.command_center.default_person || 'user';
+      currencySymbol = loadedPrefs.command_center.currency_symbol || '$';
+      careToggles = (loadedPrefs.command_center.care_categories?.toggles || []).join('\n');
+      careRatings = (loadedPrefs.command_center.care_categories?.ratings || []).join('\n');
+      careCountersJson = JSON.stringify(loadedPrefs.command_center.care_categories?.counters || [], null, 2);
+      corsOrigins = (loadedPrefs.cors.origins || []).join('\n');
     } catch (e) {
       prefs = null;
       error = e instanceof Error ? e.message : 'Failed to load preferences';
@@ -189,10 +250,37 @@
             clear_api_key: clearOpenRouterApiKey,
           },
         },
-        orchestrator: { enabled: orchestratorEnabled },
-        voice: { enabled: voiceEnabled },
-        discord: { enabled: discordEnabled },
-        telegram: { enabled: telegramEnabled },
+        scribe: {
+          enabled: scribeEnabled,
+          provider: scribeProvider,
+          model: scribeModel,
+          interval_minutes: scribeIntervalMinutes,
+          digest_path: scribeDigestPath,
+          min_messages: scribeMinMessages,
+        },
+        hooks: {
+          context_injection: contextInjection,
+          safe_write_prefixes: safeWritePrefixes.split(/\r?\n|,/).map(s => s.trim()).filter(Boolean),
+        },
+        orchestrator: { enabled: orchestratorEnabled, wake_prompts_path: wakePromptsPath },
+        voice: { enabled: voiceEnabled, elevenlabs_voice_id: elevenlabsVoiceId },
+        discord: { enabled: discordEnabled, owner_user_id: discordOwnerUserId },
+        telegram: { enabled: telegramEnabled, owner_chat_id: telegramOwnerChatId },
+        integrations: {
+          life_api_url: lifeApiUrl,
+          mind_cloud: { enabled: mindCloudEnabled, mcp_url: mindCloudMcpUrl },
+        },
+        command_center: {
+          enabled: commandCenterEnabled,
+          default_person: commandCenterDefaultPerson,
+          currency_symbol: currencySymbol,
+          care_categories: {
+            toggles: careToggles.split(/\r?\n|,/).map(s => s.trim()).filter(Boolean),
+            ratings: careRatings.split(/\r?\n|,/).map(s => s.trim()).filter(Boolean),
+            counters: JSON.parse(careCountersJson || '[]'),
+          },
+        },
+        cors: { origins: corsOrigins.split(/\r?\n|,/).map(s => s.trim()).filter(Boolean) },
       };
       if (newPassword) {
         updates.auth = { password: newPassword };
@@ -223,6 +311,12 @@
 </script>
 
 <div class="prefs-panel">
+  <datalist id="runtime-model-options">
+    {#each MODELS as m}
+      <option value={m.id}>{m.label}</option>
+    {/each}
+  </datalist>
+
   {#if loading}
     <p class="loading-text">Loading preferences...</p>
   {:else if prefs}
@@ -311,11 +405,7 @@
 
       <div class="field">
         <label class="field-label" for="pref-model">Interactive Model</label>
-        <select id="pref-model" class="field-select" bind:value={model}>
-          {#each MODELS as m}
-            <option value={m.id}>{m.label}</option>
-          {/each}
-        </select>
+        <input id="pref-model" type="text" class="field-input" list="runtime-model-options" bind:value={model} />
         <span class="field-hint">Used when you send a message</span>
       </div>
 
@@ -330,11 +420,7 @@
 
       <div class="field">
         <label class="field-label" for="pref-model-auto">Autonomous Model</label>
-        <select id="pref-model-auto" class="field-select" bind:value={modelAutonomous}>
-          {#each MODELS as m}
-            <option value={m.id}>{m.label}</option>
-          {/each}
-        </select>
+        <input id="pref-model-auto" type="text" class="field-input" list="runtime-model-options" bind:value={modelAutonomous} />
         <span class="field-hint">Used for scheduled wakes and autonomous actions</span>
       </div>
 
@@ -383,6 +469,49 @@
       </div>
     </section>
 
+    <!-- Scribe -->
+    <section class="section">
+      <h3 class="section-title">Scribe</h3>
+      <p class="section-desc">Periodic digest agent for conversation records.</p>
+
+      <label class="toggle-row">
+        <input type="checkbox" bind:checked={scribeEnabled} />
+        <span class="toggle-label">Enabled</span>
+        <span class="toggle-desc">Run periodic digest passes over new messages</span>
+      </label>
+
+      <div class="field">
+        <label class="field-label" for="pref-scribe-provider">Provider</label>
+        <select id="pref-scribe-provider" class="field-select" bind:value={scribeProvider}>
+          {#each PROVIDERS as p}
+            <option value={p.id}>{p.label}</option>
+          {/each}
+        </select>
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="pref-scribe-model">Model</label>
+        <input id="pref-scribe-model" type="text" class="field-input" list="runtime-model-options" bind:value={scribeModel} />
+        <span class="field-hint">Uses the same provider runtime contract as chat</span>
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="pref-scribe-interval">Interval Minutes</label>
+        <input id="pref-scribe-interval" type="number" min="1" class="field-input" bind:value={scribeIntervalMinutes} />
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="pref-scribe-min-messages">Minimum New Messages</label>
+        <input id="pref-scribe-min-messages" type="number" min="1" class="field-input" bind:value={scribeMinMessages} />
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="pref-scribe-digest-path">Digest Folder Path</label>
+        <input id="pref-scribe-digest-path" type="text" class="field-input" bind:value={scribeDigestPath} />
+        <span class="field-hint">Daily digest markdown files are written here</span>
+      </div>
+    </section>
+
     <!-- Toggles -->
     <section class="section">
       <h3 class="section-title">Features</h3>
@@ -394,11 +523,20 @@
         <span class="toggle-desc">Scheduled wake-ups and autonomous actions</span>
       </label>
 
+      <div class="field">
+        <label class="field-label" for="pref-wake-prompts-path">Wake Prompts Path</label>
+        <input id="pref-wake-prompts-path" type="text" class="field-input" bind:value={wakePromptsPath} />
+      </div>
+
       <label class="toggle-row">
         <input type="checkbox" bind:checked={voiceEnabled} />
         <span class="toggle-label">Voice</span>
         <span class="toggle-desc">ElevenLabs TTS and Groq transcription</span>
       </label>
+      <div class="field">
+        <label class="field-label" for="pref-elevenlabs-voice-id">ElevenLabs Voice ID</label>
+        <input id="pref-elevenlabs-voice-id" type="text" class="field-input" bind:value={elevenlabsVoiceId} />
+      </div>
       {#if voiceEnabled}
         <div class="setup-guide">
           <p class="guide-title">Voice Setup</p>
@@ -421,6 +559,10 @@ GROQ_API_KEY=your_groq_key</pre>
         <span class="toggle-label">Discord</span>
         <span class="toggle-desc">Discord bot gateway integration</span>
       </label>
+      <div class="field">
+        <label class="field-label" for="pref-discord-owner-id">Discord Owner User ID</label>
+        <input id="pref-discord-owner-id" type="text" class="field-input" bind:value={discordOwnerUserId} />
+      </div>
       {#if discordEnabled}
         <div class="setup-guide">
           <p class="guide-title">Discord Setup</p>
@@ -449,6 +591,10 @@ GROQ_API_KEY=your_groq_key</pre>
         <span class="toggle-label">Telegram</span>
         <span class="toggle-desc">Telegram bot integration</span>
       </label>
+      <div class="field">
+        <label class="field-label" for="pref-telegram-owner-chat-id">Telegram Owner Chat ID</label>
+        <input id="pref-telegram-owner-chat-id" type="text" class="field-input" bind:value={telegramOwnerChatId} />
+      </div>
       {#if telegramEnabled}
         <div class="setup-guide">
           <p class="guide-title">Telegram Setup</p>
@@ -471,6 +617,78 @@ GROQ_API_KEY=your_groq_key</pre>
           </ol>
         </div>
       {/if}
+    </section>
+
+    <!-- System Surfaces -->
+    <section class="section">
+      <h3 class="section-title">System Surfaces</h3>
+      <p class="section-desc">Runtime-adjacent configuration exposed for advanced installs.</p>
+
+      <label class="toggle-row">
+        <input type="checkbox" bind:checked={contextInjection} />
+        <span class="toggle-label">Context</span>
+        <span class="toggle-desc">Inject orientation context into companion runs</span>
+      </label>
+
+      <div class="field">
+        <label class="field-label" for="pref-safe-write-prefixes">Safe Write Prefixes</label>
+        <textarea id="pref-safe-write-prefixes" class="field-textarea code-textarea" rows="4" bind:value={safeWritePrefixes}></textarea>
+        <span class="field-hint">One path per line or comma-separated</span>
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="pref-life-api-url">Life API URL</label>
+        <input id="pref-life-api-url" type="text" class="field-input" bind:value={lifeApiUrl} />
+      </div>
+
+      <label class="toggle-row">
+        <input type="checkbox" bind:checked={mindCloudEnabled} />
+        <span class="toggle-label">Mind Cloud</span>
+        <span class="toggle-desc">Enable Mind Cloud integration metadata</span>
+      </label>
+
+      <div class="field">
+        <label class="field-label" for="pref-mind-cloud-mcp-url">Mind Cloud MCP URL</label>
+        <input id="pref-mind-cloud-mcp-url" type="text" class="field-input" bind:value={mindCloudMcpUrl} />
+      </div>
+
+      <label class="toggle-row">
+        <input type="checkbox" bind:checked={commandCenterEnabled} />
+        <span class="toggle-label">Command Center</span>
+        <span class="toggle-desc">Enable life-management pages and tools</span>
+      </label>
+
+      <div class="field">
+        <label class="field-label" for="pref-cc-default-person">Default Person</label>
+        <input id="pref-cc-default-person" type="text" class="field-input" bind:value={commandCenterDefaultPerson} />
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="pref-currency-symbol">Currency Symbol</label>
+        <input id="pref-currency-symbol" type="text" class="field-input" bind:value={currencySymbol} />
+      </div>
+
+      <details class="details-block">
+        <summary>Care categories</summary>
+        <div class="field">
+          <label class="field-label" for="pref-care-toggles">Care Toggles</label>
+          <textarea id="pref-care-toggles" class="field-textarea code-textarea" rows="4" bind:value={careToggles}></textarea>
+        </div>
+        <div class="field">
+          <label class="field-label" for="pref-care-ratings">Care Ratings</label>
+          <textarea id="pref-care-ratings" class="field-textarea code-textarea" rows="4" bind:value={careRatings}></textarea>
+        </div>
+        <div class="field">
+          <label class="field-label" for="pref-care-counters">Care Counters JSON</label>
+          <textarea id="pref-care-counters" class="field-textarea code-textarea" rows="6" bind:value={careCountersJson}></textarea>
+        </div>
+      </details>
+
+      <div class="field">
+        <label class="field-label" for="pref-cors-origins">CORS Origins</label>
+        <textarea id="pref-cors-origins" class="field-textarea code-textarea" rows="4" bind:value={corsOrigins}></textarea>
+        <span class="field-hint">One origin per line or comma-separated</span>
+      </div>
     </section>
 
     <!-- Security -->

@@ -184,7 +184,7 @@ All tools accept JSON parameters via the MCP protocol. The companion's hooks sys
 
 ## The Scribe (Digest Agent)
 
-A background agent that runs every 30 minutes on Haiku, producing structured daily digests of conversation. Digests are saved to `data/digests/YYYY-MM-DD.md`.
+A configurable background agent that produces structured daily digests of conversation. By default it runs every 30 minutes through the configured Scribe runtime and saves digests to `data/digests/YYYY-MM-DD.md`.
 
 Each digest block extracts:
 - **Topics & Themes** — categorized by work, personal, health, creative, etc.
@@ -198,9 +198,11 @@ Each digest block extracts:
 
 ### Configuration
 
-- Toggle: set `digest.enabled` to `false` in the config DB to disable
+- Toggle, provider, model, interval, digest folder, and minimum-message threshold are editable in Settings > Preferences > Scribe
+- YAML config lives under `scribe:` (`enabled`, `provider`, `model`, `interval_minutes`, `digest_path`, `min_messages`)
+- Older config DB keys such as `digest.enabled`, `digest.provider`, `digest.model`, and `digest.min_messages` are still honored as compatibility overrides
 - The Scribe skips runs when the companion is actively processing
-- Requires at least 5 new messages since the last digest
+- Requires at least the configured number of new messages since the last digest
 - Uses `companion_name` and `user_name` from `resonant.yaml` for speaker labels
 
 ---

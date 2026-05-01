@@ -295,7 +295,7 @@ Current state:
 
 - Claude SDK sessions are used for resume and compaction behavior.
 - `session-maintenance.md` documents Claude `.jsonl` session accumulation.
-- The Scribe digest agent imports the Claude Agent SDK directly and uses `model: 'haiku'`.
+- The Scribe digest agent now routes through the provider-neutral text query helper with configurable provider/model, interval, digest path, and minimum-message threshold.
 - Provider-neutral thread history exists in SQLite, but non-Claude providers do not yet get a full Resonant-owned continuity reconstruction layer.
 
 Normalization target:
@@ -315,7 +315,7 @@ Provider rules:
 
 - Claude Code may keep native resume as an optimization.
 - Codex/OpenRouter should build context from Resonant DB, digests, and semantic search.
-- Scribe/digest should use a provider adapter, not `@anthropic-ai/claude-agent-sdk` directly.
+- Scribe/digest uses a provider adapter through `runtime/text-query.ts`.
 
 ### Autonomous Wakes And Background Agents
 
@@ -328,12 +328,12 @@ Current state:
 
 - Orchestrator calls `AgentService`, which is good.
 - Orchestrator imports `fetchLifeStatus` from `hooks.ts`, which ties it to the hook module shape.
-- Digest bypasses `AgentService` and calls Claude SDK directly.
+- Digest bypasses `AgentService` for simplicity but calls the provider-neutral text query helper rather than the Claude SDK directly.
 
 Normalization target:
 
 - Move life/status context helpers out of `hooks.ts`.
-- Route all model calls, including Scribe/digest, through a runtime provider contract.
+- Keep all model calls, including Scribe/digest, routed through a runtime provider contract.
 - Allow autonomous model/provider selection separately from interactive selection.
 - Add capability checks for background jobs that require tool use versus text-only summarization.
 
@@ -703,4 +703,3 @@ The next implementation slice should finish the cleanup that this first pass int
 5. Add regression tests proving Claude hooks still inject the same orientation and emit the same tool/audit side effects.
 
 After that, continue with the internal tool registry expansion before implementing real OpenRouter execution.
-

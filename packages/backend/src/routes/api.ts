@@ -945,17 +945,49 @@ router.get('/preferences', (req, res) => {
         },
       },
       providers: RUNTIME_CAPABILITIES,
+      scribe: {
+        enabled: (parsed as any)?.scribe?.enabled ?? config.scribe.enabled,
+        provider: (parsed as any)?.scribe?.provider ?? config.scribe.provider,
+        model: (parsed as any)?.scribe?.model ?? config.scribe.model,
+        interval_minutes: (parsed as any)?.scribe?.interval_minutes ?? config.scribe.interval_minutes,
+        digest_path: (parsed as any)?.scribe?.digest_path ?? config.scribe.digest_path,
+        min_messages: (parsed as any)?.scribe?.min_messages ?? config.scribe.min_messages,
+      },
+      hooks: {
+        context_injection: (parsed as any)?.hooks?.context_injection ?? config.hooks.context_injection,
+        safe_write_prefixes: (parsed as any)?.hooks?.safe_write_prefixes ?? config.hooks.safe_write_prefixes,
+      },
       orchestrator: {
         enabled: (parsed as any)?.orchestrator?.enabled ?? config.orchestrator.enabled,
+        wake_prompts_path: (parsed as any)?.orchestrator?.wake_prompts_path ?? config.orchestrator.wake_prompts_path,
       },
       voice: {
         enabled: (parsed as any)?.voice?.enabled ?? config.voice.enabled,
+        elevenlabs_voice_id: (parsed as any)?.voice?.elevenlabs_voice_id ?? config.voice.elevenlabs_voice_id,
       },
       discord: {
         enabled: (parsed as any)?.discord?.enabled ?? config.discord.enabled,
+        owner_user_id: (parsed as any)?.discord?.owner_user_id ?? config.discord.owner_user_id,
       },
       telegram: {
         enabled: (parsed as any)?.telegram?.enabled ?? config.telegram.enabled,
+        owner_chat_id: (parsed as any)?.telegram?.owner_chat_id ?? config.telegram.owner_chat_id,
+      },
+      integrations: {
+        life_api_url: (parsed as any)?.integrations?.life_api_url ?? config.integrations.life_api_url,
+        mind_cloud: {
+          enabled: (parsed as any)?.integrations?.mind_cloud?.enabled ?? config.integrations.mind_cloud.enabled,
+          mcp_url: (parsed as any)?.integrations?.mind_cloud?.mcp_url ?? config.integrations.mind_cloud.mcp_url,
+        },
+      },
+      command_center: {
+        enabled: (parsed as any)?.command_center?.enabled ?? config.command_center.enabled,
+        default_person: (parsed as any)?.command_center?.default_person ?? config.command_center.default_person,
+        currency_symbol: (parsed as any)?.command_center?.currency_symbol ?? config.command_center.currency_symbol,
+        care_categories: (parsed as any)?.command_center?.care_categories ?? config.command_center.care_categories,
+      },
+      cors: {
+        origins: (parsed as any)?.cors?.origins ?? config.cors.origins,
       },
       auth: {
         has_password: !!config.auth.password,
@@ -1024,18 +1056,64 @@ router.put('/preferences', (req, res) => {
     if (updates.orchestrator) {
       if (!parsed.orchestrator) parsed.orchestrator = {};
       if (updates.orchestrator.enabled !== undefined) parsed.orchestrator.enabled = updates.orchestrator.enabled;
+      if (updates.orchestrator.wake_prompts_path !== undefined) parsed.orchestrator.wake_prompts_path = updates.orchestrator.wake_prompts_path;
+    }
+    if (updates.hooks) {
+      if (!parsed.hooks) parsed.hooks = {};
+      if (updates.hooks.context_injection !== undefined) parsed.hooks.context_injection = updates.hooks.context_injection;
+      if (updates.hooks.safe_write_prefixes !== undefined) {
+        parsed.hooks.safe_write_prefixes = Array.isArray(updates.hooks.safe_write_prefixes)
+          ? updates.hooks.safe_write_prefixes
+          : String(updates.hooks.safe_write_prefixes).split(/\r?\n|,/).map((s: string) => s.trim()).filter(Boolean);
+      }
+    }
+    if (updates.scribe) {
+      if (!parsed.scribe) parsed.scribe = {};
+      if (updates.scribe.enabled !== undefined) parsed.scribe.enabled = updates.scribe.enabled;
+      if (updates.scribe.provider !== undefined) parsed.scribe.provider = updates.scribe.provider;
+      if (updates.scribe.model !== undefined) parsed.scribe.model = updates.scribe.model;
+      if (updates.scribe.interval_minutes !== undefined) parsed.scribe.interval_minutes = Number(updates.scribe.interval_minutes);
+      if (updates.scribe.digest_path !== undefined) parsed.scribe.digest_path = updates.scribe.digest_path;
+      if (updates.scribe.min_messages !== undefined) parsed.scribe.min_messages = Number(updates.scribe.min_messages);
     }
     if (updates.voice) {
       if (!parsed.voice) parsed.voice = {};
       if (updates.voice.enabled !== undefined) parsed.voice.enabled = updates.voice.enabled;
+      if (updates.voice.elevenlabs_voice_id !== undefined) parsed.voice.elevenlabs_voice_id = updates.voice.elevenlabs_voice_id;
     }
     if (updates.discord) {
       if (!parsed.discord) parsed.discord = {};
       if (updates.discord.enabled !== undefined) parsed.discord.enabled = updates.discord.enabled;
+      if (updates.discord.owner_user_id !== undefined) parsed.discord.owner_user_id = updates.discord.owner_user_id;
     }
     if (updates.telegram) {
       if (!parsed.telegram) parsed.telegram = {};
       if (updates.telegram.enabled !== undefined) parsed.telegram.enabled = updates.telegram.enabled;
+      if (updates.telegram.owner_chat_id !== undefined) parsed.telegram.owner_chat_id = updates.telegram.owner_chat_id;
+    }
+    if (updates.integrations) {
+      if (!parsed.integrations) parsed.integrations = {};
+      if (updates.integrations.life_api_url !== undefined) parsed.integrations.life_api_url = updates.integrations.life_api_url;
+      if (updates.integrations.mind_cloud) {
+        if (!parsed.integrations.mind_cloud) parsed.integrations.mind_cloud = {};
+        if (updates.integrations.mind_cloud.enabled !== undefined) parsed.integrations.mind_cloud.enabled = updates.integrations.mind_cloud.enabled;
+        if (updates.integrations.mind_cloud.mcp_url !== undefined) parsed.integrations.mind_cloud.mcp_url = updates.integrations.mind_cloud.mcp_url;
+      }
+    }
+    if (updates.command_center) {
+      if (!parsed.command_center) parsed.command_center = {};
+      if (updates.command_center.enabled !== undefined) parsed.command_center.enabled = updates.command_center.enabled;
+      if (updates.command_center.default_person !== undefined) parsed.command_center.default_person = updates.command_center.default_person;
+      if (updates.command_center.currency_symbol !== undefined) parsed.command_center.currency_symbol = updates.command_center.currency_symbol;
+      if (updates.command_center.care_categories !== undefined) parsed.command_center.care_categories = updates.command_center.care_categories;
+    }
+    if (updates.cors) {
+      if (!parsed.cors) parsed.cors = {};
+      if (updates.cors.origins !== undefined) {
+        parsed.cors.origins = Array.isArray(updates.cors.origins)
+          ? updates.cors.origins
+          : String(updates.cors.origins).split(/\r?\n|,/).map((s: string) => s.trim()).filter(Boolean);
+      }
     }
     if (updates.auth) {
       if (!parsed.auth) parsed.auth = {};

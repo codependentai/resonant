@@ -34,6 +34,13 @@ orchestrator:
   schedules: {}
   failsafe:
     enabled: false
+scribe:
+  enabled: true
+  provider: "openai-codex"
+  model: "gpt-5.4-mini"
+  interval_minutes: 30
+  digest_path: "./data/digests"
+  min_messages: 5
 hooks:
   context_injection: true
   safe_write_prefixes: []
@@ -53,4 +60,3 @@ command_center:
   currency_symbol: "$"
 cors:
   origins: []
-

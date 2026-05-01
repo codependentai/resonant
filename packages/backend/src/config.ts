@@ -59,6 +59,14 @@ export interface ResonantConfig {
       emergency_minutes: number;
     };
   };
+  scribe: {
+    enabled: boolean;
+    provider: 'claude-code' | 'openai-codex' | 'openrouter';
+    model: string;
+    interval_minutes: number;
+    digest_path: string;
+    min_messages: number;
+  };
   hooks: {
     context_injection: boolean;
     safe_write_prefixes: string[];
@@ -146,6 +154,14 @@ const DEFAULTS: ResonantConfig = {
       concerned_minutes: 720,
       emergency_minutes: 1440,
     },
+  },
+  scribe: {
+    enabled: true,
+    provider: 'claude-code',
+    model: 'claude-sonnet-4-6',
+    interval_minutes: 30,
+    digest_path: './data/digests',
+    min_messages: 5,
   },
   hooks: {
     context_injection: true,
@@ -259,6 +275,7 @@ export function loadConfig(configPath?: string): ResonantConfig {
   merged.agent.mcp_json_path = resolveFromRoot(merged.agent.mcp_json_path);
   merged.agent.claude_code.mcp_json_path = resolveFromRoot(merged.agent.claude_code.mcp_json_path || merged.agent.mcp_json_path);
   merged.orchestrator.wake_prompts_path = resolveFromRoot(merged.orchestrator.wake_prompts_path);
+  merged.scribe.digest_path = resolveFromRoot(merged.scribe.digest_path);
 
   _config = merged;
   return merged;

@@ -1,11 +1,13 @@
 // The Scribe — periodic thread digest agent
 // Extracts structured daily records from conversation via the configured runtime provider.
-import { existsSync, mkdirSync, readFileSync, appendFileSync } from 'fs';
-import { join, dirname } from 'path';
+import { existsSync, mkdirSync, appendFileSync } from 'fs';
+import { join } from 'path';
 import { getDb, getConfig, setConfig, getTodayThread } from './db.js';
 import { getResonantConfig } from '../config.js';
 import type { AgentService } from './agent.js';
 import { runTextOnlyQuery } from '../runtime/text-query.js';
+import { isRuntimeProviderId } from '../runtime/capabilities.js';
+import type { RuntimeProviderId } from '../runtime/types.js';
 
 function today(): string {
   return new Date().toLocaleDateString('en-CA', { timeZone: getResonantConfig().identity.timezone });
@@ -22,7 +24,7 @@ function dlog(msg: string): void {
 
 function getDigestsDir(): string {
   const config = getResonantConfig();
-  const dir = join(dirname(config.server.db_path), 'digests');
+  const dir = getConfig('scribe.digest_path') || getConfig('digest.path') || config.scribe.digest_path;
   if (!existsSync(dir)) {
     mkdirSync(dir, { recursive: true });
   }
@@ -69,7 +71,18 @@ Use the section headers above (### Topics & Themes, ### Key Quotes, etc.). Omit 
 Do NOT output anything before or after the markdown. No preamble, no "Here's the digest", no sign-off.`;
 }
 
-const MIN_MESSAGES = 5;
+function getMinMessages(): number {
+  const configured = Number(getConfig('scribe.min_messages') || getConfig('digest.min_messages') || getResonantConfig().scribe.min_messages);
+  return Number.isFinite(configured) && configured > 0 ? configured : 5;
+}
+
+function getScribeRuntime(): { provider: RuntimeProviderId; model: string } {
+  const config = getResonantConfig();
+  const providerValue = getConfig('scribe.provider') || getConfig('digest.provider') || config.scribe.provider;
+  const provider = isRuntimeProviderId(providerValue) ? providerValue : config.scribe.provider;
+  const model = getConfig('scribe.model') || getConfig('digest.model') || config.scribe.model;
+  return { provider, model };
+}
 
 export async function runDigest(agent: AgentService): Promise<void> {
   // Skip if companion is actively processing (don't compete)
@@ -92,8 +105,9 @@ export async function runDigest(agent: AgentService): Promise<void> {
     `SELECT role, content, created_at FROM messages WHERE thread_id = ? AND sequence > ? AND deleted_at IS NULL AND content_type = 'text' ORDER BY sequence ASC`
   ).all(thread.id, lastSeq) as Array<{ role: string; content: string; created_at: string }>;
 
-  if (messages.length < MIN_MESSAGES) {
-    dlog(`Skipped — only ${messages.length} new messages (need ${MIN_MESSAGES}+)`);
+  const minMessages = getMinMessages();
+  if (messages.length < minMessages) {
+    dlog(`Skipped — only ${messages.length} new messages (need ${minMessages}+)`);
     return;
   }
 
@@ -136,7 +150,10 @@ ${conversationBlock}
 Write the digest block for this conversation. Remember: output ONLY the markdown, starting with ## ${nowTime()} — topic summary`;
 
   try {
+    const scribeRuntime = getScribeRuntime();
     const digestContent = await runTextOnlyQuery({
+      provider: scribeRuntime.provider,
+      model: scribeRuntime.model,
       prompt,
       systemPrompt: buildScribePrompt(),
       threadId: thread.id,

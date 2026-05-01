@@ -24,6 +24,14 @@ vi.mock('../config.js', () => ({
       schedules: {},
       failsafe: { enabled: true, gentle_minutes: 120, concerned_minutes: 720, emergency_minutes: 1440 },
     },
+    scribe: {
+      enabled: true,
+      provider: 'claude-code',
+      model: 'claude-sonnet-4-6',
+      interval_minutes: 30,
+      digest_path: './data/digests',
+      min_messages: 5,
+    },
   }),
   PROJECT_ROOT: '/tmp/test',
 }));
