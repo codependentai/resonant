@@ -75,6 +75,12 @@ export interface ResonantConfig {
     enabled: boolean;
     elevenlabs_voice_id: string;
   };
+  push: {
+    enabled: boolean;
+    vapid_public_key_env: string;
+    vapid_private_key_env: string;
+    vapid_contact: string;
+  };
   discord: {
     enabled: boolean;
     owner_user_id: string;
@@ -170,6 +176,12 @@ const DEFAULTS: ResonantConfig = {
   voice: {
     enabled: false,
     elevenlabs_voice_id: '',
+  },
+  push: {
+    enabled: true,
+    vapid_public_key_env: 'VAPID_PUBLIC_KEY',
+    vapid_private_key_env: 'VAPID_PRIVATE_KEY',
+    vapid_contact: 'mailto:admin@example.com',
   },
   discord: {
     enabled: false,

@@ -12,10 +12,34 @@ export interface PushPayload {
 
 export class PushService {
   private configured = false;
+  private vapidPublicKey: string | null = null;
+  private enabled = true;
+  private publicKeyEnv = 'VAPID_PUBLIC_KEY';
+  private privateKeyEnv = 'VAPID_PRIVATE_KEY';
+  private vapidContact = 'mailto:admin@example.com';
 
-  constructor(vapidPublic?: string, vapidPrivate?: string, vapidContact?: string) {
-    if (vapidPublic && vapidPrivate && vapidContact) {
+  constructor(options?: {
+    enabled?: boolean;
+    vapidPublic?: string;
+    vapidPrivate?: string;
+    vapidContact?: string;
+    publicKeyEnv?: string;
+    privateKeyEnv?: string;
+  }) {
+    this.enabled = options?.enabled ?? true;
+    this.publicKeyEnv = options?.publicKeyEnv || this.publicKeyEnv;
+    this.privateKeyEnv = options?.privateKeyEnv || this.privateKeyEnv;
+    this.vapidContact = options?.vapidContact || this.vapidContact;
+
+    const vapidPublic = options?.vapidPublic;
+    const vapidPrivate = options?.vapidPrivate;
+    const vapidContact = options?.vapidContact || this.vapidContact;
+
+    if (!this.enabled) {
+      console.log('PushService: disabled by config');
+    } else if (vapidPublic && vapidPrivate && vapidContact) {
       webpush.setVapidDetails(vapidContact, vapidPublic, vapidPrivate);
+      this.vapidPublicKey = vapidPublic;
       this.configured = true;
       console.log('PushService: VAPID configured');
     } else {
@@ -28,7 +52,18 @@ export class PushService {
   }
 
   getVapidPublicKey(): string | null {
-    return this.configured ? process.env.VAPID_PUBLIC_KEY || null : null;
+    return this.configured ? this.vapidPublicKey : null;
+  }
+
+  getConfigStatus() {
+    return {
+      enabled: this.enabled,
+      configured: this.configured,
+      hasPublicKey: !!this.vapidPublicKey,
+      publicKeyEnv: this.publicKeyEnv,
+      privateKeyEnv: this.privateKeyEnv,
+      vapidContact: this.vapidContact,
+    };
   }
 
   /** Send push to all web_push subscriptions */

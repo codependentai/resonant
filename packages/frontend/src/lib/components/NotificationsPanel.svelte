@@ -4,6 +4,13 @@
 
   let permission = $derived(getNotificationPermission());
   let vapidPublicKey = $state<string | null>(null);
+  let pushStatus = $state<{
+    enabled: boolean;
+    configured: boolean;
+    publicKeyEnv: string;
+    privateKeyEnv: string;
+    vapidContact: string;
+  } | null>(null);
   let isSubscribed = $state(false);
   let subscriptions = $state<Array<{ id: string; deviceName: string | null; endpoint: string | null; createdAt: string; lastUsedAt: string | null }>>([]);
   let loading = $state(true);
@@ -46,6 +53,10 @@
       if (subsRes.ok) {
         const data = await subsRes.json();
         subscriptions = data.subscriptions;
+      }
+      const statusRes = await fetch('/api/push/status');
+      if (statusRes.ok) {
+        pushStatus = await statusRes.json();
       }
     } catch (err) {
       error = 'Failed to load notification settings';
@@ -172,6 +183,16 @@
       <p class="section-desc">Receive notifications even when the browser is closed.</p>
       {#if !vapidPublicKey}
         <p class="help-text warning">VAPID keys not configured on server. Push unavailable.</p>
+        <div class="setup-box">
+          <p class="setup-title">Server setup</p>
+          <ol class="setup-steps">
+            <li>Run <code>npx web-push generate-vapid-keys</code>.</li>
+            <li>Add <code>{pushStatus?.publicKeyEnv || 'VAPID_PUBLIC_KEY'}</code> and <code>{pushStatus?.privateKeyEnv || 'VAPID_PRIVATE_KEY'}</code> to <code>.env</code>.</li>
+            <li>Set VAPID contact in Preferences if needed, then restart the server.</li>
+          </ol>
+        </div>
+      {:else if pushStatus && !pushStatus.enabled}
+        <p class="help-text warning">Push is disabled in Preferences.</p>
       {:else if permission !== 'granted'}
         <p class="help-text">Grant browser permission first.</p>
       {:else if isSubscribed}
@@ -221,6 +242,30 @@
     {/if}
     {#if error}
       <p class="error-msg">{error}</p>
+    {/if}
+
+    {#if pushStatus}
+      <section class="section">
+        <h3 class="section-title">VAPID Configuration</h3>
+        <div class="config-grid">
+          <div class="config-item">
+            <span class="config-label">Status</span>
+            <strong>{pushStatus.configured ? 'Configured' : 'Missing keys'}</strong>
+          </div>
+          <div class="config-item">
+            <span class="config-label">Public Key Env</span>
+            <code>{pushStatus.publicKeyEnv}</code>
+          </div>
+          <div class="config-item">
+            <span class="config-label">Private Key Env</span>
+            <code>{pushStatus.privateKeyEnv}</code>
+          </div>
+          <div class="config-item">
+            <span class="config-label">Contact</span>
+            <code>{pushStatus.vapidContact}</code>
+          </div>
+        </div>
+      </section>
     {/if}
   {/if}
 </div>
@@ -296,6 +341,67 @@
 
   .help-text.warning {
     color: #f59e0b;
+  }
+
+  .setup-box {
+    margin-top: 0.75rem;
+    padding: 0.85rem 1rem;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+  }
+
+  .setup-title {
+    font-size: 0.8125rem;
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+  }
+
+  .setup-steps {
+    margin: 0;
+    padding-left: 1.1rem;
+    color: var(--text-secondary);
+    font-size: 0.8125rem;
+    line-height: 1.6;
+  }
+
+  code {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 0.0625rem 0.25rem;
+  }
+
+  .config-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+  }
+
+  .config-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    min-width: 0;
+    padding: 0.625rem;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+  }
+
+  .config-label {
+    font-size: 0.6875rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .config-item strong,
+  .config-item code {
+    overflow-wrap: anywhere;
   }
 
   .btn {

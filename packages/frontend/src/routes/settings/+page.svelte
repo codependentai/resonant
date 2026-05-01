@@ -7,6 +7,7 @@
   import SkillsPanel from '$lib/components/SkillsPanel.svelte';
   import NotificationsPanel from '$lib/components/NotificationsPanel.svelte';
   import DiscordPanel from '$lib/components/DiscordPanel.svelte';
+  import TelegramPanel from '$lib/components/TelegramPanel.svelte';
   import SessionsPanel from '$lib/components/SessionsPanel.svelte';
   import PreferencesPanel from '$lib/components/PreferencesPanel.svelte';
   import {
@@ -18,7 +19,7 @@
   } from '$lib/stores/settings.svelte';
   import { send, getConnectionState } from '$lib/stores/websocket.svelte';
 
-  let activeTab = $state<'preferences' | 'orchestrator' | 'system' | 'mcp' | 'skills' | 'notifications' | 'discord' | 'sessions'>('preferences');
+  let activeTab = $state<'preferences' | 'orchestrator' | 'system' | 'mcp' | 'skills' | 'notifications' | 'discord' | 'telegram' | 'sessions'>('preferences');
   let systemStatus = $derived(getSystemStatus());
   let loading = $derived(isLoading());
   let connectionState = $derived(getConnectionState());
@@ -32,6 +33,7 @@
     { id: 'skills', label: 'Skills', desc: 'Installed capability packs' },
     { id: 'notifications', label: 'Notifications', desc: 'Alerts and delivery' },
     { id: 'discord', label: 'Discord', desc: 'Community and routing' },
+    { id: 'telegram', label: 'Telegram', desc: 'Private mobile gateway' },
     { id: 'sessions', label: 'Sessions', desc: 'Active and past sessions' },
   ] as const;
 
@@ -155,6 +157,8 @@
             <NotificationsPanel />
           {:else if activeTab === 'discord'}
             <DiscordPanel />
+          {:else if activeTab === 'telegram'}
+            <TelegramPanel />
           {:else if activeTab === 'sessions'}
             <SessionsPanel />
           {/if}

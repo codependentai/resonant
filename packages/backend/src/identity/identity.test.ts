@@ -46,6 +46,12 @@ function makeConfig(overrides: Partial<ResonantConfig> = {}): ResonantConfig {
     },
     hooks: { context_injection: true, safe_write_prefixes: [] },
     voice: { enabled: false, elevenlabs_voice_id: '' },
+    push: {
+      enabled: true,
+      vapid_public_key_env: 'VAPID_PUBLIC_KEY',
+      vapid_private_key_env: 'VAPID_PRIVATE_KEY',
+      vapid_contact: 'mailto:admin@example.com',
+    },
     discord: { enabled: false, owner_user_id: '' },
     telegram: { enabled: false, owner_chat_id: '' },
     integrations: { life_api_url: '', mind_cloud: { enabled: false, mcp_url: '' } },

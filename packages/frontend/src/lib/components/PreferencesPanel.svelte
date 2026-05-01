@@ -42,6 +42,12 @@
     hooks: { context_injection: boolean; safe_write_prefixes: string[] };
     orchestrator: { enabled: boolean; wake_prompts_path?: string };
     voice: { enabled: boolean; elevenlabs_voice_id?: string };
+    push: {
+      enabled: boolean;
+      vapid_public_key_env: string;
+      vapid_private_key_env: string;
+      vapid_contact: string;
+    };
     discord: { enabled: boolean; owner_user_id?: string };
     telegram: { enabled: boolean; owner_chat_id?: string };
     integrations: { life_api_url: string; mind_cloud: { enabled: boolean; mcp_url: string } };
@@ -96,6 +102,10 @@
   let wakePromptsPath = $state('./prompts/wake.md');
   let voiceEnabled = $state(false);
   let elevenlabsVoiceId = $state('');
+  let pushEnabled = $state(true);
+  let vapidPublicKeyEnv = $state('VAPID_PUBLIC_KEY');
+  let vapidPrivateKeyEnv = $state('VAPID_PRIVATE_KEY');
+  let vapidContact = $state('mailto:admin@example.com');
   let discordEnabled = $state(false);
   let discordOwnerUserId = $state('');
   let telegramEnabled = $state(false);
@@ -142,7 +152,7 @@
     if (maybePrefs?.error) {
       throw new Error(maybePrefs.error);
     }
-    if (!maybePrefs?.identity || !maybePrefs.agent || !maybePrefs.scribe || !maybePrefs.hooks || !maybePrefs.orchestrator || !maybePrefs.voice || !maybePrefs.discord || !maybePrefs.telegram || !maybePrefs.integrations || !maybePrefs.command_center || !maybePrefs.cors || !maybePrefs.auth) {
+    if (!maybePrefs?.identity || !maybePrefs.agent || !maybePrefs.scribe || !maybePrefs.hooks || !maybePrefs.orchestrator || !maybePrefs.voice || !maybePrefs.push || !maybePrefs.discord || !maybePrefs.telegram || !maybePrefs.integrations || !maybePrefs.command_center || !maybePrefs.cors || !maybePrefs.auth) {
       throw new Error('Preferences response was incomplete');
     }
     return maybePrefs as Preferences;
@@ -193,6 +203,10 @@
       wakePromptsPath = loadedPrefs.orchestrator.wake_prompts_path || './prompts/wake.md';
       voiceEnabled = loadedPrefs.voice.enabled;
       elevenlabsVoiceId = loadedPrefs.voice.elevenlabs_voice_id || '';
+      pushEnabled = loadedPrefs.push.enabled;
+      vapidPublicKeyEnv = loadedPrefs.push.vapid_public_key_env || 'VAPID_PUBLIC_KEY';
+      vapidPrivateKeyEnv = loadedPrefs.push.vapid_private_key_env || 'VAPID_PRIVATE_KEY';
+      vapidContact = loadedPrefs.push.vapid_contact || 'mailto:admin@example.com';
       discordEnabled = loadedPrefs.discord.enabled;
       discordOwnerUserId = loadedPrefs.discord.owner_user_id || '';
       telegramEnabled = loadedPrefs.telegram.enabled;
@@ -264,6 +278,12 @@
         },
         orchestrator: { enabled: orchestratorEnabled, wake_prompts_path: wakePromptsPath },
         voice: { enabled: voiceEnabled, elevenlabs_voice_id: elevenlabsVoiceId },
+        push: {
+          enabled: pushEnabled,
+          vapid_public_key_env: vapidPublicKeyEnv,
+          vapid_private_key_env: vapidPrivateKeyEnv,
+          vapid_contact: vapidContact,
+        },
         discord: { enabled: discordEnabled, owner_user_id: discordOwnerUserId },
         telegram: { enabled: telegramEnabled, owner_chat_id: telegramOwnerChatId },
         integrations: {
@@ -550,6 +570,41 @@ ELEVENLABS_VOICE_ID=your_voice_id
 GROQ_API_KEY=your_groq_key</pre>
             </li>
             <li>Restart the server</li>
+          </ol>
+        </div>
+      {/if}
+
+      <label class="toggle-row">
+        <input type="checkbox" bind:checked={pushEnabled} />
+        <span class="toggle-label">Push</span>
+        <span class="toggle-desc">Browser push notifications for offline alerts</span>
+      </label>
+      <div class="field">
+        <label class="field-label" for="pref-vapid-public-env">VAPID Public Key Env</label>
+        <input id="pref-vapid-public-env" type="text" class="field-input" bind:value={vapidPublicKeyEnv} />
+      </div>
+      <div class="field">
+        <label class="field-label" for="pref-vapid-private-env">VAPID Private Key Env</label>
+        <input id="pref-vapid-private-env" type="text" class="field-input" bind:value={vapidPrivateKeyEnv} />
+        <span class="field-hint">The private key stays in .env, never in browser settings.</span>
+      </div>
+      <div class="field">
+        <label class="field-label" for="pref-vapid-contact">VAPID Contact</label>
+        <input id="pref-vapid-contact" type="text" class="field-input" bind:value={vapidContact} placeholder="mailto:admin@example.com" />
+      </div>
+      {#if pushEnabled}
+        <div class="setup-guide">
+          <p class="guide-title">Push Setup</p>
+          <ol class="guide-steps">
+            <li>Generate a VAPID keypair:
+              <pre class="guide-code">npx web-push generate-vapid-keys</pre>
+            </li>
+            <li>Add the keys to your <code>.env</code> file:
+              <pre class="guide-code">{vapidPublicKeyEnv}=your_public_key
+{vapidPrivateKeyEnv}=your_private_key</pre>
+            </li>
+            <li>Set a contact URI such as <code>mailto:you@example.com</code>, then restart the server.</li>
+            <li>Use the Notifications tab to subscribe this browser and send a test push.</li>
           </ol>
         </div>
       {/if}

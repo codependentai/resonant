@@ -278,7 +278,8 @@ export class AgentService {
   }
 
   async listSessions(limit = 50): Promise<unknown[]> {
-    return providerManager().get('claude-code').listSessions?.(limit) || [];
+    const runtime = resolveRuntimeSelection(false, getResonantConfig());
+    return providerManager().get(runtime.provider).listSessions?.(limit) || [];
   }
 
   async processMessage(

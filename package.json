@@ -1,6 +1,6 @@
 {
   "name": "resonant",
-  "version": "2.1.2",
+  "version": "2.2.0",
   "private": true,
   "description": "Relational AI companion framework built on Claude Code Agent SDK",
   "workspaces": ["packages/shared", "packages/backend", "packages/frontend"],

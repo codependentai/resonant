@@ -56,13 +56,13 @@ import { getRecentAuditEntries } from '../services/audit.js';
 import { embed, vectorToBuffer } from '../services/embeddings.js';
 import { searchVectors, getCacheStats, type SearchFilter } from '../services/vector-cache.js';
 import { saveFile, saveFileInternal, getContentTypeFromMime, getFile, deleteFile, listFiles } from '../services/files.js';
-import { registry } from '../services/ws.js';
+import { registry, setGatewayServices } from '../services/ws.js';
 import { getResonantConfig, PROJECT_ROOT } from '../config.js';
 import { RUNTIME_CAPABILITIES } from '../runtime/capabilities.js';
 import { resolveRuntimeSelection } from '../runtime/selection.js';
 import type { Orchestrator } from '../services/orchestrator.js';
 import type { VoiceService } from '../services/voice.js';
-import type { TelegramService } from '../services/telegram/index.js';
+import { TelegramService } from '../services/telegram/index.js';
 import type { PushService } from '../services/push.js';
 import rateLimit from 'express-rate-limit';
 // CC routes imported lazily below (after config loads)
@@ -965,6 +965,12 @@ router.get('/preferences', (req, res) => {
         enabled: (parsed as any)?.voice?.enabled ?? config.voice.enabled,
         elevenlabs_voice_id: (parsed as any)?.voice?.elevenlabs_voice_id ?? config.voice.elevenlabs_voice_id,
       },
+      push: {
+        enabled: (parsed as any)?.push?.enabled ?? config.push.enabled,
+        vapid_public_key_env: (parsed as any)?.push?.vapid_public_key_env ?? config.push.vapid_public_key_env,
+        vapid_private_key_env: (parsed as any)?.push?.vapid_private_key_env ?? config.push.vapid_private_key_env,
+        vapid_contact: (parsed as any)?.push?.vapid_contact ?? config.push.vapid_contact,
+      },
       discord: {
         enabled: (parsed as any)?.discord?.enabled ?? config.discord.enabled,
         owner_user_id: (parsed as any)?.discord?.owner_user_id ?? config.discord.owner_user_id,
@@ -1080,6 +1086,13 @@ router.put('/preferences', (req, res) => {
       if (!parsed.voice) parsed.voice = {};
       if (updates.voice.enabled !== undefined) parsed.voice.enabled = updates.voice.enabled;
       if (updates.voice.elevenlabs_voice_id !== undefined) parsed.voice.elevenlabs_voice_id = updates.voice.elevenlabs_voice_id;
+    }
+    if (updates.push) {
+      if (!parsed.push) parsed.push = {};
+      if (updates.push.enabled !== undefined) parsed.push.enabled = updates.push.enabled;
+      if (updates.push.vapid_public_key_env !== undefined) parsed.push.vapid_public_key_env = updates.push.vapid_public_key_env;
+      if (updates.push.vapid_private_key_env !== undefined) parsed.push.vapid_private_key_env = updates.push.vapid_private_key_env;
+      if (updates.push.vapid_contact !== undefined) parsed.push.vapid_contact = updates.push.vapid_contact;
     }
     if (updates.discord) {
       if (!parsed.discord) parsed.discord = {};
@@ -1839,6 +1852,19 @@ router.delete('/canvases/:id', (req, res) => {
 
 // --- Push subscription endpoints ---
 
+router.get('/push/status', (req, res) => {
+  const pushService = req.app.locals.pushService as PushService | undefined;
+  const status = pushService?.getConfigStatus() || {
+    enabled: false,
+    configured: false,
+    hasPublicKey: false,
+    publicKeyEnv: 'VAPID_PUBLIC_KEY',
+    privateKeyEnv: 'VAPID_PRIVATE_KEY',
+    vapidContact: 'mailto:admin@example.com',
+  };
+  res.json(status);
+});
+
 // Subscribe to push notifications
 router.post('/push/subscribe', (req, res) => {
   try {
@@ -2049,6 +2075,7 @@ router.delete('/orchestrator/triggers/:id', (req, res) => {
 
 import { DiscordService } from '../services/discord/index.js';
 import type { AgentService } from '../services/agent.js';
+import { getTelegramConfig } from '../services/telegram/config.js';
 
 router.get('/discord/status', (req, res) => {
   try {
@@ -2085,6 +2112,10 @@ router.post('/discord/toggle', async (req, res) => {
       await service.start();
       req.app.locals.discordService = service;
       setConfig('discord.enabled', 'true');
+      setGatewayServices({
+        discord: service,
+        telegram: req.app.locals.telegramService ?? null,
+      });
       console.log('[Discord] Gateway enabled via settings toggle');
       res.json({ success: true, message: 'Discord gateway started' });
     } else {
@@ -2095,6 +2126,10 @@ router.post('/discord/toggle', async (req, res) => {
         req.app.locals.discordService = null;
       }
       setConfig('discord.enabled', 'false');
+      setGatewayServices({
+        discord: null,
+        telegram: req.app.locals.telegramService ?? null,
+      });
       console.log('[Discord] Gateway disabled via settings toggle');
       res.json({ success: true, message: 'Discord gateway stopped' });
     }
@@ -2155,6 +2190,109 @@ router.delete('/discord/pairings/:userId', (req, res) => {
   } catch (error) {
     console.error('Error revoking pairing:', error);
     res.status(500).json({ error: 'Failed to revoke pairing' });
+  }
+});
+
+// --- Telegram admin endpoints ---
+
+router.get('/telegram/status', (req, res) => {
+  try {
+    const telegramService = req.app.locals.telegramService as TelegramService | null;
+    const configEnabled = getConfigBool('telegram.enabled', false);
+    const hasToken = !!process.env.TELEGRAM_BOT_TOKEN;
+    const telegramConfig = getTelegramConfig();
+
+    if (!telegramService) {
+      res.json({
+        enabled: false,
+        connected: false,
+        configEnabled,
+        hasToken,
+        ownerChatId: telegramConfig.ownerChatId,
+        maxMessageLength: telegramConfig.maxMessageLength,
+      });
+      return;
+    }
+
+    res.json({
+      enabled: true,
+      configEnabled,
+      hasToken,
+      ownerChatId: telegramConfig.ownerChatId,
+      maxMessageLength: telegramConfig.maxMessageLength,
+      ...telegramService.getStats(),
+    });
+  } catch (error) {
+    console.error('Error fetching Telegram status:', error);
+    res.status(500).json({ error: 'Failed to fetch Telegram status' });
+  }
+});
+
+router.post('/telegram/toggle', async (req, res) => {
+  try {
+    const { enabled } = req.body as { enabled: boolean };
+    const agentService = req.app.locals.agentService as AgentService;
+    const voiceService = req.app.locals.voiceService as VoiceService;
+
+    if (enabled) {
+      if (!process.env.TELEGRAM_BOT_TOKEN) {
+        res.status(400).json({ error: 'TELEGRAM_BOT_TOKEN not set in .env' });
+        return;
+      }
+      if (req.app.locals.telegramService) {
+        setConfig('telegram.enabled', 'true');
+        res.json({ success: true, message: 'Already running' });
+        return;
+      }
+
+      const service = new TelegramService(agentService, registry, voiceService);
+      await service.start();
+      req.app.locals.telegramService = service;
+      setConfig('telegram.enabled', 'true');
+      setGatewayServices({
+        discord: req.app.locals.discordService ?? null,
+        telegram: service,
+      });
+      console.log('[Telegram] Gateway enabled via settings toggle');
+      res.json({ success: true, message: 'Telegram gateway started' });
+    } else {
+      const service = req.app.locals.telegramService as TelegramService | null;
+      if (service) {
+        await service.stop();
+        req.app.locals.telegramService = null;
+      }
+      setConfig('telegram.enabled', 'false');
+      setGatewayServices({
+        discord: req.app.locals.discordService ?? null,
+        telegram: null,
+      });
+      console.log('[Telegram] Gateway disabled via settings toggle');
+      res.json({ success: true, message: 'Telegram gateway stopped' });
+    }
+  } catch (error) {
+    console.error('Error toggling Telegram:', error);
+    res.status(500).json({ error: 'Failed to toggle Telegram gateway' });
+  }
+});
+
+router.get('/telegram/settings', (req, res) => {
+  try {
+    res.json(getTelegramConfig());
+  } catch (error) {
+    console.error('Error fetching Telegram settings:', error);
+    res.status(500).json({ error: 'Failed to fetch Telegram settings' });
+  }
+});
+
+router.put('/telegram/settings', (req, res) => {
+  try {
+    const body = req.body as Record<string, unknown>;
+    if ('ownerChatId' in body) setConfig('telegram.ownerChatId', String(body.ownerChatId ?? ''));
+    if ('maxMessageLength' in body) setConfig('telegram.maxMessageLength', String(body.maxMessageLength ?? 4096));
+    res.json({ success: true, ...getTelegramConfig() });
+  } catch (error) {
+    console.error('Error updating Telegram settings:', error);
+    res.status(500).json({ error: 'Failed to update Telegram settings' });
   }
 });
 

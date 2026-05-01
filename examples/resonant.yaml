@@ -64,6 +64,12 @@ voice:
   enabled: false
   elevenlabs_voice_id: ""      # Your ElevenLabs voice ID
 
+push:
+  enabled: true
+  vapid_public_key_env: "VAPID_PUBLIC_KEY"
+  vapid_private_key_env: "VAPID_PRIVATE_KEY"
+  vapid_contact: "mailto:admin@example.com" # Contact URI for push providers
+
 discord:
   enabled: false
   owner_user_id: ""            # Your Discord user ID
