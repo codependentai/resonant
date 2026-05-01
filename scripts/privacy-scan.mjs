@@ -20,7 +20,7 @@ const BLOCKED_PATTERNS = [
   /third chair/,
   /\bElias\b/,
   /\bEzra\b/,
-  /MTQ[A-Za-z0-9._-]+/,
+  /[A-Za-z0-9_-]{23,28}\.[A-Za-z0-9_-]{6,8}\.[A-Za-z0-9_-]{27,}/,
 ];
 
 const MECHANICAL_REPLACEMENT_SCARS = [
@@ -40,12 +40,15 @@ function gitFiles(args) {
     .filter(Boolean);
 }
 
-const files = [
-  ...new Set([
-    ...gitFiles(['ls-files', '--modified']),
-    ...gitFiles(['ls-files', '--others', '--exclude-standard']),
-  ]),
-];
+const scanChangedOnly = process.argv.includes('--changed');
+const files = scanChangedOnly
+  ? [
+      ...new Set([
+        ...gitFiles(['ls-files', '--modified']),
+        ...gitFiles(['ls-files', '--others', '--exclude-standard']),
+      ]),
+    ]
+  : gitFiles(['ls-files']);
 
 const hits = [];
 
@@ -77,4 +80,4 @@ if (hits.length > 0) {
   process.exit(1);
 }
 
-console.log('Privacy scan passed: no private identity markers found in modified/untracked files.');
+console.log(`Privacy scan passed: no private identity markers found in ${scanChangedOnly ? 'modified/untracked files' : 'tracked files'}.`);

@@ -110,7 +110,7 @@
         {#each results as hit (hit.messageId)}
           <button class="search-result" onclick={() => handleResultClick(hit)}>
             <div class="result-header">
-              <span class="result-role" class:simon={hit.role === 'companion'}>{hit.role === 'companion' ? 'Simon' : 'Mary'}</span>
+              <span class="result-role" class:companion={hit.role === 'companion'}>{hit.role === 'companion' ? 'Companion' : 'User'}</span>
               <span class="result-thread">{hit.threadName}</span>
               <span class="result-time">{formatTime(hit.createdAt)}</span>
             </div>
@@ -256,7 +256,7 @@
     letter-spacing: 0.04em;
   }
 
-  .result-role.simon {
+  .result-role.companion {
     color: var(--text-secondary);
   }
 

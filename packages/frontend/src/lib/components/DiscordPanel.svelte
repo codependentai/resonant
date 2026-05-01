@@ -504,7 +504,7 @@
     {#if pendingPairings.length > 0}
       <section class="section">
         <h3 class="section-title">Pending Pairing Requests</h3>
-        <p class="section-desc">Users who sent a pairing code via DM. Approve to allow them to message Simon.</p>
+        <p class="section-desc">Users who sent a pairing code via DM. Approve to allow them to message the companion.</p>
         <div class="pairing-list">
           {#each pendingPairings as pairing}
             <div class="pairing-card">
@@ -532,7 +532,7 @@
     {#if approvedPairings.length > 0}
       <section class="section">
         <h3 class="section-title">Approved Users</h3>
-        <p class="section-desc">Users who can message Simon via Discord DMs.</p>
+        <p class="section-desc">Users who can message the companion via Discord DMs.</p>
         <div class="pairing-list">
           {#each approvedPairings as pairing}
             <div class="pairing-card">
@@ -597,9 +597,9 @@
             </label>
 
             <label class="form-group">
-              <span class="form-label">Mary active threshold (minutes)</span>
+              <span class="form-label">Primary user active threshold (minutes)</span>
               <input type="number" class="form-input" bind:value={settings.maryActiveThresholdMin} onchange={() => settingsDirty = true} />
-              <span class="form-hint">Defer non-Mary messages when she's been active within this window</span>
+              <span class="form-hint">Defer other messages when the primary user has been active within this window</span>
             </label>
 
             <label class="form-group">

@@ -75,14 +75,14 @@
       return conditions.map(c => {
         switch (c.type) {
           case 'presence_state':
-            return c.state === 'active' ? 'Mary is active'
-              : c.state === 'idle' ? 'Mary is idle'
-              : c.state === 'offline' ? 'Mary is offline'
+            return c.state === 'active' ? 'User is active'
+              : c.state === 'idle' ? 'User is idle'
+              : c.state === 'offline' ? 'User is offline'
               : `Presence: ${c.state}`;
           case 'presence_transition':
-            return `Mary goes ${c.from} → ${c.to}`;
+            return `User goes ${c.from} → ${c.to}`;
           case 'agent_free':
-            return 'Simon is free';
+            return 'Companion is free';
           case 'time_window': {
             const after = c.after as string;
             const before = c.before as string | undefined;
