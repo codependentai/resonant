@@ -1,8 +1,8 @@
 import { Router } from 'express';
 import crypto from 'crypto';
 import multer from 'multer';
-import { readdirSync, readFileSync, writeFileSync, existsSync } from 'fs';
-import { join, basename, resolve } from 'path';
+import { readdirSync, readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
+import { join, basename, resolve, dirname } from 'path';
 import yaml from 'js-yaml';
 import {
   listThreads,
@@ -57,7 +57,9 @@ import { embed, vectorToBuffer } from '../services/embeddings.js';
 import { searchVectors, getCacheStats, type SearchFilter } from '../services/vector-cache.js';
 import { saveFile, saveFileInternal, getContentTypeFromMime, getFile, deleteFile, listFiles } from '../services/files.js';
 import { registry } from '../services/ws.js';
-import { getResonantConfig } from '../config.js';
+import { getResonantConfig, PROJECT_ROOT } from '../config.js';
+import { RUNTIME_CAPABILITIES } from '../runtime/capabilities.js';
+import { resolveRuntimeSelection } from '../runtime/selection.js';
 import type { Orchestrator } from '../services/orchestrator.js';
 import type { VoiceService } from '../services/voice.js';
 import type { TelegramService } from '../services/telegram/index.js';
@@ -860,34 +862,89 @@ router.use(authMiddleware);
 // --- Preferences (resonant.yaml) ---
 
 function findConfigPath(): string | null {
+  const explicitConfigPath = process.env.RESONANT_CONFIG;
+  if (explicitConfigPath) {
+    const p = resolve(PROJECT_ROOT, explicitConfigPath);
+    if (existsSync(p)) return p;
+    return null;
+  }
+
   for (const name of ['resonant.yaml', 'resonant.yml']) {
-    const p = resolve(name);
+    const p = resolve(PROJECT_ROOT, name);
     if (existsSync(p)) return p;
   }
   return null;
+}
+
+function readTextIfExists(path: string | undefined): string {
+  if (!path || !existsSync(path)) return '';
+  return readFileSync(path, 'utf-8');
+}
+
+function resolveConfiguredPath(pathValue: unknown, fallback: string): string {
+  const path = typeof pathValue === 'string' && pathValue.trim() ? pathValue : fallback;
+  return resolve(PROJECT_ROOT, path);
+}
+
+function writeTextFile(path: string, content: string): void {
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, content, 'utf-8');
 }
 
 router.get('/preferences', (req, res) => {
   try {
     const configPath = findConfigPath();
     if (!configPath) {
-      res.json({ error: 'No config file found' });
+      res.status(404).json({ error: 'No config file found' });
       return;
     }
     const raw = readFileSync(configPath, 'utf-8');
     const parsed = yaml.load(raw) as Record<string, unknown> || {};
     // Only expose safe, editable fields — not server internals
     const config = getResonantConfig();
+    const parsedIdentity = (parsed as any).identity || {};
+    const parsedOpenRouter = (parsed as any).agent?.openrouter || {};
+    const profilePath = parsedIdentity.profile_path
+      ? resolveConfiguredPath(parsedIdentity.profile_path, './identity/companion.profile.yaml')
+      : config.identity.profile_path;
+    const companionMarkdownPath = parsedIdentity.companion_md_path
+      ? resolveConfiguredPath(parsedIdentity.companion_md_path, './identity/companion.md')
+      : config.identity.companion_md_path;
+    const providerOverridesPath = parsedIdentity.provider_overrides_path
+      ? resolveConfiguredPath(parsedIdentity.provider_overrides_path, './identity/provider-overrides')
+      : config.identity.provider_overrides_path;
+    const openRouterEnv = parsedOpenRouter.api_key_env || config.agent.openrouter.api_key_env || 'OPENROUTER_API_KEY';
+    const openRouterKeySet = Boolean(parsedOpenRouter.api_key || config.agent.openrouter.api_key || process.env[openRouterEnv]);
     res.json({
       identity: {
         companion_name: config.identity.companion_name,
         user_name: config.identity.user_name,
         timezone: config.identity.timezone,
+        profile_path: parsedIdentity.profile_path ?? config.identity.profile_path,
+        companion_md_path: parsedIdentity.companion_md_path ?? config.identity.companion_md_path,
+        provider_overrides_path: parsedIdentity.provider_overrides_path ?? config.identity.provider_overrides_path,
+        profile_yaml: readTextIfExists(profilePath),
+        companion_markdown: readTextIfExists(companionMarkdownPath),
+        provider_overrides: {
+          claude_code: readTextIfExists(join(providerOverridesPath, 'claude-code.md')),
+          openai_codex: readTextIfExists(join(providerOverridesPath, 'openai-codex.md')),
+          openrouter: readTextIfExists(join(providerOverridesPath, 'openrouter.md')),
+        },
       },
       agent: {
+        provider: config.agent.provider,
+        autonomous_provider: config.agent.autonomous_provider,
         model: config.agent.model,
         model_autonomous: config.agent.model_autonomous,
+        openai_codex_permission: config.agent.openai_codex_permission,
+        openrouter: {
+          base_url: parsedOpenRouter.base_url ?? config.agent.openrouter.base_url,
+          api_key_env: parsedOpenRouter.api_key_env ?? config.agent.openrouter.api_key_env,
+          default_model: parsedOpenRouter.default_model ?? config.agent.openrouter.default_model,
+          api_key_set: openRouterKeySet,
+        },
       },
+      providers: RUNTIME_CAPABILITIES,
       orchestrator: {
         enabled: (parsed as any)?.orchestrator?.enabled ?? config.orchestrator.enabled,
       },
@@ -921,17 +978,48 @@ router.put('/preferences', (req, res) => {
     const parsed = (yaml.load(raw) as Record<string, any>) || {};
     const updates = req.body as Record<string, any>;
 
+    if (updates.identity?.profile_yaml !== undefined) {
+      try {
+        yaml.load(String(updates.identity.profile_yaml || '{}'));
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Invalid identity profile YAML';
+        res.status(400).json({ error: `Invalid identity profile YAML: ${message}` });
+        return;
+      }
+    }
+
     // Merge only allowed fields
     if (updates.identity) {
       if (!parsed.identity) parsed.identity = {};
       if (updates.identity.companion_name !== undefined) parsed.identity.companion_name = updates.identity.companion_name;
       if (updates.identity.user_name !== undefined) parsed.identity.user_name = updates.identity.user_name;
       if (updates.identity.timezone !== undefined) parsed.identity.timezone = updates.identity.timezone;
+      if (updates.identity.profile_path !== undefined) parsed.identity.profile_path = updates.identity.profile_path;
+      if (updates.identity.companion_md_path !== undefined) parsed.identity.companion_md_path = updates.identity.companion_md_path;
+      if (updates.identity.provider_overrides_path !== undefined) parsed.identity.provider_overrides_path = updates.identity.provider_overrides_path;
     }
     if (updates.agent) {
       if (!parsed.agent) parsed.agent = {};
+      if (updates.agent.provider !== undefined) parsed.agent.provider = updates.agent.provider;
+      if (updates.agent.autonomous_provider !== undefined) parsed.agent.autonomous_provider = updates.agent.autonomous_provider;
       if (updates.agent.model !== undefined) parsed.agent.model = updates.agent.model;
       if (updates.agent.model_autonomous !== undefined) parsed.agent.model_autonomous = updates.agent.model_autonomous;
+      if (updates.agent.openai_codex_permission !== undefined) {
+        parsed.agent.openai_codex_permission = updates.agent.openai_codex_permission;
+        if (!parsed.agent.openai_codex) parsed.agent.openai_codex = {};
+        parsed.agent.openai_codex.permission = updates.agent.openai_codex_permission;
+      }
+      if (updates.agent.openrouter) {
+        if (!parsed.agent.openrouter) parsed.agent.openrouter = {};
+        if (updates.agent.openrouter.base_url !== undefined) parsed.agent.openrouter.base_url = updates.agent.openrouter.base_url;
+        if (updates.agent.openrouter.api_key_env !== undefined) parsed.agent.openrouter.api_key_env = updates.agent.openrouter.api_key_env;
+        if (updates.agent.openrouter.default_model !== undefined) parsed.agent.openrouter.default_model = updates.agent.openrouter.default_model;
+        if (updates.agent.openrouter.clear_api_key) {
+          delete parsed.agent.openrouter.api_key;
+        } else if (typeof updates.agent.openrouter.api_key === 'string' && updates.agent.openrouter.api_key.trim()) {
+          parsed.agent.openrouter.api_key = updates.agent.openrouter.api_key.trim();
+        }
+      }
     }
     if (updates.orchestrator) {
       if (!parsed.orchestrator) parsed.orchestrator = {};
@@ -952,6 +1040,29 @@ router.put('/preferences', (req, res) => {
     if (updates.auth) {
       if (!parsed.auth) parsed.auth = {};
       if (updates.auth.password !== undefined) parsed.auth.password = updates.auth.password;
+    }
+
+    const parsedIdentity = parsed.identity || {};
+    if (updates.identity?.profile_yaml !== undefined) {
+      const path = resolveConfiguredPath(parsedIdentity.profile_path, './identity/companion.profile.yaml');
+      writeTextFile(path, String(updates.identity.profile_yaml ?? ''));
+    }
+    if (updates.identity?.companion_markdown !== undefined) {
+      const path = resolveConfiguredPath(parsedIdentity.companion_md_path, './identity/companion.md');
+      writeTextFile(path, String(updates.identity.companion_markdown ?? ''));
+    }
+    if (updates.identity?.provider_overrides) {
+      const overridesPath = resolveConfiguredPath(parsedIdentity.provider_overrides_path, './identity/provider-overrides');
+      const providerOverrides = updates.identity.provider_overrides;
+      if (providerOverrides.claude_code !== undefined) {
+        writeTextFile(join(overridesPath, 'claude-code.md'), String(providerOverrides.claude_code ?? ''));
+      }
+      if (providerOverrides.openai_codex !== undefined) {
+        writeTextFile(join(overridesPath, 'openai-codex.md'), String(providerOverrides.openai_codex ?? ''));
+      }
+      if (providerOverrides.openrouter !== undefined) {
+        writeTextFile(join(overridesPath, 'openrouter.md'), String(providerOverrides.openrouter ?? ''));
+      }
     }
 
     // Write back
@@ -1453,8 +1564,20 @@ router.get('/sessions', async (req, res) => {
 // Get all config
 router.get('/settings', (req, res) => {
   try {
-    const config = getAllConfig();
-    res.json({ config });
+    const dbConfig = getAllConfig();
+    const resonantConfig = getResonantConfig();
+    const interactiveRuntime = resolveRuntimeSelection(false, resonantConfig);
+    const autonomousRuntime = resolveRuntimeSelection(true, resonantConfig);
+    const config = {
+      ...dbConfig,
+      'agent.provider': dbConfig['agent.provider'] || interactiveRuntime.provider,
+      'agent.autonomous_provider': dbConfig['agent.autonomous_provider'] || autonomousRuntime.provider,
+      'agent.model': dbConfig['agent.model'] || resonantConfig.agent.model,
+      'agent.model_autonomous': dbConfig['agent.model_autonomous'] || resonantConfig.agent.model_autonomous,
+      'agent.openai_codex_permission': dbConfig['agent.openai_codex_permission'] || resonantConfig.agent.openai_codex_permission,
+      'agent.openai_codex.permission': dbConfig['agent.openai_codex.permission'] || resonantConfig.agent.openai_codex.permission,
+    };
+    res.json({ config, providers: RUNTIME_CAPABILITIES });
   } catch (error) {
     console.error('Error fetching settings:', error);
     res.status(500).json({ error: 'Failed to fetch settings' });

@@ -25,7 +25,7 @@
   let statusInterval: ReturnType<typeof setInterval> | null = null;
 
   const sections = [
-    { id: 'preferences', label: 'Preferences', desc: 'Theme, companion name, and display' },
+    { id: 'preferences', label: 'Preferences', desc: 'Identity, providers, and core runtime' },
     { id: 'orchestrator', label: 'Orchestrator', desc: 'Night routines and failsafes' },
     { id: 'system', label: 'System', desc: 'Runtime health and presence' },
     { id: 'mcp', label: 'MCP Servers', desc: 'Connected tools and services' },

@@ -12,7 +12,8 @@
     "build": "npm run build --workspace=packages/shared && npm run build --workspace=packages/frontend && npm run build --workspace=packages/backend",
     "start": "npm run start --workspace=packages/backend",
     "check": "npm run check --workspaces --if-present",
-    "test": "vitest run"
+    "test": "vitest run",
+    "privacy:scan": "node scripts/privacy-scan.mjs"
   },
   "engines": {
     "node": ">=20.0.0 <25.0.0"

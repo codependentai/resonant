@@ -572,6 +572,7 @@ async function handleMessageSend(
 
   // Resolve thread
   let thread: Thread | null = null;
+  let createdThread: Thread | null = null;
   if (msg.threadId) {
     thread = getThread(msg.threadId);
   } else {
@@ -587,12 +588,17 @@ async function handleMessageSend(
         createdAt: now,
         sessionType: 'v2',
       });
+      createdThread = thread;
     }
   }
 
   if (!thread) {
     sendError(ws, 'thread_not_found', 'Thread not found');
     return;
+  }
+
+  if (createdThread) {
+    registry.broadcast({ type: 'thread_created', thread: createdThread });
   }
 
   // Store user's message

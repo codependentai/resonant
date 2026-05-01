@@ -1,0 +1,56 @@
+identity:
+  companion_name: "Avery"
+  user_name: "Jordan"
+  timezone: "Europe/London"
+  profile_path: "./examples/identity/avery/companion.profile.yaml"
+  companion_md_path: "./examples/identity/avery/companion.md"
+  provider_overrides_path: "./examples/identity/avery/provider-overrides"
+server:
+  port: 3109
+  host: "127.0.0.1"
+  db_path: "./data/resonant-avery.db"
+auth:
+  password: ""
+agent:
+  provider: "openai-codex"
+  autonomous_provider: "openai-codex"
+  cwd: "."
+  claude_md_path: "./CLAUDE.md"
+  mcp_json_path: "./.mcp.json"
+  model: "claude-sonnet-4-6"
+  model_autonomous: "gpt-5.4-mini"
+  openai_codex_permission: "danger-full-access"
+  claude_code:
+    mcp_json_path: "./.mcp.json"
+  openai_codex:
+    permission: "danger-full-access"
+  openrouter:
+    base_url: "https://openrouter.ai/api/v1"
+    api_key_env: "OPENROUTER_API_KEY"
+    default_model: ""
+orchestrator:
+  enabled: false
+  wake_prompts_path: "./prompts/wake.md"
+  schedules: {}
+  failsafe:
+    enabled: false
+hooks:
+  context_injection: true
+  safe_write_prefixes: []
+voice:
+  enabled: false
+discord:
+  enabled: false
+telegram:
+  enabled: false
+integrations:
+  life_api_url: ""
+  mind_cloud:
+    enabled: false
+    mcp_url: ""
+command_center:
+  enabled: true
+  currency_symbol: "$"
+cors:
+  origins: []
+

@@ -14,6 +14,9 @@ export interface ResonantConfig {
     companion_name: string;
     user_name: string;
     timezone: string;
+    profile_path: string;
+    companion_md_path: string;
+    provider_overrides_path: string;
   };
   server: {
     port: number;
@@ -24,11 +27,26 @@ export interface ResonantConfig {
     password: string;
   };
   agent: {
+    provider: 'claude-code' | 'openai-codex' | 'openrouter';
+    autonomous_provider: 'claude-code' | 'openai-codex' | 'openrouter';
     cwd: string;
     claude_md_path: string;
     mcp_json_path: string;
     model: string;
     model_autonomous: string;
+    openai_codex_permission: string;
+    claude_code: {
+      mcp_json_path: string;
+    };
+    openai_codex: {
+      permission: string;
+    };
+    openrouter: {
+      base_url: string;
+      api_key_env: string;
+      api_key?: string;
+      default_model: string;
+    };
   };
   orchestrator: {
     enabled: boolean;
@@ -84,6 +102,9 @@ const DEFAULTS: ResonantConfig = {
     companion_name: 'Echo',
     user_name: 'User',
     timezone: 'UTC',
+    profile_path: './identity/companion.profile.yaml',
+    companion_md_path: './identity/companion.md',
+    provider_overrides_path: './identity/provider-overrides',
   },
   server: {
     port: 3002,
@@ -94,11 +115,26 @@ const DEFAULTS: ResonantConfig = {
     password: '',
   },
   agent: {
+    provider: 'claude-code',
+    autonomous_provider: 'claude-code',
     cwd: '.',
     claude_md_path: './CLAUDE.md',
     mcp_json_path: './.mcp.json',
     model: 'claude-sonnet-4-6',
     model_autonomous: 'claude-sonnet-4-6',
+    openai_codex_permission: 'workspace-write',
+    claude_code: {
+      mcp_json_path: './.mcp.json',
+    },
+    openai_codex: {
+      permission: 'workspace-write',
+    },
+    openrouter: {
+      base_url: 'https://openrouter.ai/api/v1',
+      api_key_env: 'OPENROUTER_API_KEY',
+      api_key: '',
+      default_model: '',
+    },
   },
   orchestrator: {
     enabled: true,
@@ -167,8 +203,9 @@ let _config: ResonantConfig | null = null;
 export function loadConfig(configPath?: string): ResonantConfig {
   if (_config) return _config;
 
-  const searchPaths = configPath
-    ? [configPath]
+  const explicitConfigPath = configPath || process.env.RESONANT_CONFIG;
+  const searchPaths = explicitConfigPath
+    ? [resolve(PROJECT_ROOT, explicitConfigPath)]
     : [
         join(PROJECT_ROOT, 'resonant.yaml'),
         join(PROJECT_ROOT, 'resonant.yml'),
@@ -195,7 +232,16 @@ export function loadConfig(configPath?: string): ResonantConfig {
   if (process.env.DB_PATH) merged.server.db_path = process.env.DB_PATH;
   if (process.env.APP_PASSWORD) merged.auth.password = process.env.APP_PASSWORD;
   if (process.env.AGENT_CWD) merged.agent.cwd = process.env.AGENT_CWD;
+  if (process.env.AGENT_PROVIDER) merged.agent.provider = process.env.AGENT_PROVIDER as ResonantConfig['agent']['provider'];
+  if (process.env.AGENT_AUTONOMOUS_PROVIDER) merged.agent.autonomous_provider = process.env.AGENT_AUTONOMOUS_PROVIDER as ResonantConfig['agent']['autonomous_provider'];
   if (process.env.AGENT_MODEL) merged.agent.model = process.env.AGENT_MODEL;
+  if (process.env.AGENT_MODEL_AUTONOMOUS) merged.agent.model_autonomous = process.env.AGENT_MODEL_AUTONOMOUS;
+  if (process.env.OPENAI_CODEX_PERMISSION) {
+    merged.agent.openai_codex_permission = process.env.OPENAI_CODEX_PERMISSION;
+    merged.agent.openai_codex.permission = process.env.OPENAI_CODEX_PERMISSION;
+  }
+  const openRouterKeyEnv = merged.agent.openrouter.api_key_env || 'OPENROUTER_API_KEY';
+  if (process.env[openRouterKeyEnv]) merged.agent.openrouter.api_key = process.env[openRouterKeyEnv];
   if (process.env.COMPANION_NAME) merged.identity.companion_name = process.env.COMPANION_NAME;
   if (process.env.USER_NAME) merged.identity.user_name = process.env.USER_NAME;
   if (process.env.TZ) merged.identity.timezone = process.env.TZ;
@@ -205,9 +251,13 @@ export function loadConfig(configPath?: string): ResonantConfig {
   // Resolve relative paths against the project root (not cwd)
   const resolveFromRoot = (p: string) => resolve(PROJECT_ROOT, p);
   merged.server.db_path = resolveFromRoot(merged.server.db_path);
+  merged.identity.profile_path = resolveFromRoot(merged.identity.profile_path);
+  merged.identity.companion_md_path = resolveFromRoot(merged.identity.companion_md_path);
+  merged.identity.provider_overrides_path = resolveFromRoot(merged.identity.provider_overrides_path);
   merged.agent.cwd = resolveFromRoot(merged.agent.cwd);
   merged.agent.claude_md_path = resolveFromRoot(merged.agent.claude_md_path);
   merged.agent.mcp_json_path = resolveFromRoot(merged.agent.mcp_json_path);
+  merged.agent.claude_code.mcp_json_path = resolveFromRoot(merged.agent.claude_code.mcp_json_path || merged.agent.mcp_json_path);
   merged.orchestrator.wake_prompts_path = resolveFromRoot(merged.orchestrator.wake_prompts_path);
 
   _config = merged;

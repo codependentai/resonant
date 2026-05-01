@@ -15,7 +15,7 @@ export interface CommandRegistryEntry {
 // --- Client -> Server ---
 
 export type ClientMessage =
-  | { type: 'message'; threadId: string; content: string; contentType: 'text' | 'image' | 'audio' | 'file'; replyToId?: string; metadata?: Record<string, unknown> }
+  | { type: 'message'; threadId?: string | null; content: string; contentType: 'text' | 'image' | 'audio' | 'file'; replyToId?: string; metadata?: Record<string, unknown> }
   | { type: 'edit_message'; messageId: string; newContent: string }
   | { type: 'delete_message'; messageId: string }
   | { type: 'typing' }

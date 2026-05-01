@@ -4,29 +4,47 @@
 // Thread ID read from .resonant-thread (written per-query by agent.ts)
 
 import { readFileSync } from 'fs';
-import { dirname, join } from 'path';
+import { dirname, isAbsolute, join, resolve } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const PROJECT_ROOT = join(__dirname, '..');
 
-// Resolve port: check env, then try resonant.yaml, fallback to 3002
-function getPort() {
-  if (process.env.RESONANT_PORT) return process.env.RESONANT_PORT;
+function readPortFromConfig(configPath) {
   try {
-    const yaml = readFileSync(join(__dirname, '..', 'resonant.yaml'), 'utf8');
+    const yaml = readFileSync(configPath, 'utf8');
     const match = yaml.match(/^\s*port:\s*(\d+)/m);
     if (match) return match[1];
   } catch {}
+  return null;
+}
+
+// Resolve port: check env, active config, then default config, fallback to 3002
+function getPort() {
+  if (process.env.RESONANT_PORT) return process.env.RESONANT_PORT;
+
+  if (process.env.RESONANT_CONFIG) {
+    const configPath = isAbsolute(process.env.RESONANT_CONFIG)
+      ? process.env.RESONANT_CONFIG
+      : resolve(PROJECT_ROOT, process.env.RESONANT_CONFIG);
+    const configuredPort = readPortFromConfig(configPath);
+    if (configuredPort) return configuredPort;
+  }
+
+  const defaultPort = readPortFromConfig(join(PROJECT_ROOT, 'resonant.yaml'));
+  if (defaultPort) return defaultPort;
+
   return '3002';
 }
 
 const BASE = `http://localhost:${getPort()}/api/internal`;
 
 function getThread() {
+  if (process.env.RESONANT_THREAD) return process.env.RESONANT_THREAD;
   try {
-    return readFileSync(join(__dirname, '..', '.resonant-thread'), 'utf8').trim();
+    return readFileSync(join(PROJECT_ROOT, '.resonant-thread'), 'utf8').trim();
   } catch {
-    return process.env.RESONANT_THREAD || '';
+    return '';
   }
 }
 

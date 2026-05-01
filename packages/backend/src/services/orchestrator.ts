@@ -29,7 +29,7 @@ import {
 import type { Trigger, TriggerCondition } from './db.js';
 import { evaluateConditions } from './triggers.js';
 import type { TriggerContext } from './triggers.js';
-import { fetchLifeStatus } from './hooks.js';
+import { fetchLifeStatus } from '../runtime-lifecycle/context-builder.js';
 import { getResonantConfig } from '../config.js';
 import type { OrchestratorTaskStatus } from '@resonant/shared';
 import { runDigest } from './digest.js';

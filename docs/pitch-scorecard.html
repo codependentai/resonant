@@ -1,0 +1,995 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Resonant Pitch Scorecard</title>
+    <meta
+      name="description"
+      content="Function-level product scorecard for Resonant: continuity, autonomy, ownership, utility, and the gaps that still weaken the pitch."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@300;400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #0d0d0f;
+        --bg-soft: #131316;
+        --bg-card: #17181d;
+        --bg-card-hi: #1d1f26;
+        --text: #f2f2f4;
+        --text-soft: #c4c8d2;
+        --text-muted: #8e93a3;
+        --line: rgba(255, 255, 255, 0.08);
+        --line-strong: rgba(94, 171, 165, 0.35);
+        --primary: #5eaba5;
+        --primary-hi: #79c3bd;
+        --primary-glow: rgba(94, 171, 165, 0.16);
+        --danger: #d68d7a;
+        --danger-glow: rgba(214, 141, 122, 0.14);
+        --warning: #d2b55b;
+        --radius: 22px;
+        --radius-sm: 14px;
+        --shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+        --max: 1180px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: "Inter", sans-serif;
+        color: var(--text);
+        background:
+          radial-gradient(circle at top center, rgba(94, 171, 165, 0.08), transparent 28%),
+          radial-gradient(circle at 20% 20%, rgba(94, 171, 165, 0.07), transparent 18%),
+          linear-gradient(180deg, #0b0b0d 0%, #101015 55%, #0d0d10 100%);
+      }
+
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      .shell {
+        width: min(calc(100% - 32px), var(--max));
+        margin: 0 auto;
+      }
+
+      .nav {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        backdrop-filter: blur(18px);
+        background: rgba(13, 13, 15, 0.76);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      }
+
+      .nav-inner {
+        width: min(calc(100% - 32px), var(--max));
+        margin: 0 auto;
+        padding: 18px 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+      }
+
+      .brand {
+        font-family: "Cinzel", serif;
+        font-size: clamp(1rem, 0.85rem + 0.8vw, 1.35rem);
+        letter-spacing: -0.02em;
+        color: #f6f6f8;
+      }
+
+      .nav-meta {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        color: var(--text-muted);
+        font-family: "JetBrains Mono", monospace;
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.18em;
+      }
+
+      .nav-pill {
+        padding: 10px 14px;
+        border-radius: 999px;
+        background: rgba(94, 171, 165, 0.12);
+        color: var(--primary-hi);
+        border: 1px solid rgba(94, 171, 165, 0.18);
+      }
+
+      main {
+        padding: 72px 0 96px;
+      }
+
+      .hero {
+        display: grid;
+        grid-template-columns: minmax(0, 1.9fr) minmax(280px, 0.9fr);
+        gap: 28px;
+        align-items: end;
+        margin-bottom: 72px;
+      }
+
+      .eyebrow,
+      .section-kicker,
+      .micro {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.28em;
+      }
+
+      .eyebrow,
+      .section-kicker {
+        color: var(--primary);
+        margin-bottom: 16px;
+        display: block;
+      }
+
+      h1,
+      h2,
+      h3 {
+        margin: 0;
+        font-weight: 700;
+        line-height: 1.02;
+      }
+
+      h1 {
+        font-family: "Cinzel", serif;
+        font-size: clamp(3rem, 2rem + 4vw, 5.4rem);
+        margin-bottom: 24px;
+        max-width: 11ch;
+      }
+
+      .lede {
+        max-width: 56ch;
+        color: var(--text-soft);
+        font-size: clamp(1.02rem, 0.98rem + 0.3vw, 1.18rem);
+        line-height: 1.75;
+      }
+
+      .hero-card,
+      .panel,
+      .stat,
+      .score-card,
+      .list-card {
+        background: linear-gradient(180deg, rgba(29, 31, 38, 0.86), rgba(23, 24, 29, 0.92));
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+      }
+
+      .hero-card {
+        padding: 28px;
+        border-left: 2px solid var(--primary);
+      }
+
+      .hero-card .micro {
+        color: var(--text-muted);
+        margin-bottom: 10px;
+        display: block;
+      }
+
+      .hero-card strong {
+        display: block;
+        font-family: "JetBrains Mono", monospace;
+        color: var(--primary-hi);
+        font-size: 1rem;
+        margin-bottom: 10px;
+      }
+
+      .hero-card p {
+        margin: 0;
+        color: var(--text-soft);
+        line-height: 1.7;
+      }
+
+      section {
+        margin-bottom: 72px;
+      }
+
+      .panel {
+        padding: 34px;
+      }
+
+      .claim {
+        color: var(--text-soft);
+        font-size: 1.08rem;
+        line-height: 1.8;
+        max-width: 62ch;
+      }
+
+      .claim strong {
+        color: #f5f6f8;
+      }
+
+      .section-head {
+        margin-bottom: 24px;
+      }
+
+      .section-head h2 {
+        font-family: "Cinzel", serif;
+        font-size: clamp(1.8rem, 1.4rem + 1vw, 2.6rem);
+        color: #ececf0;
+      }
+
+      .section-head p {
+        margin: 12px 0 0;
+        color: var(--text-muted);
+        max-width: 64ch;
+        line-height: 1.7;
+      }
+
+      .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 18px;
+      }
+
+      .stat {
+        padding: 22px 20px;
+        text-align: center;
+      }
+
+      .stat-value {
+        font-family: "Cinzel", serif;
+        font-size: clamp(2rem, 1.5rem + 1.5vw, 3rem);
+        margin-bottom: 8px;
+      }
+
+      .stat-label {
+        color: var(--text-soft);
+        font-size: 0.8rem;
+        letter-spacing: 0.14em;
+      }
+
+      .stat-note {
+        margin-top: 10px;
+        font-size: 0.85rem;
+        color: var(--text-muted);
+      }
+
+      .score-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 18px;
+      }
+
+      .score-card {
+        padding: 24px;
+        transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
+      }
+
+      .score-card:hover {
+        transform: translateY(-2px);
+        border-color: var(--line-strong);
+        background: linear-gradient(180deg, rgba(32, 34, 42, 0.94), rgba(24, 26, 31, 0.98));
+      }
+
+      .score-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 16px;
+        margin-bottom: 16px;
+      }
+
+      .score-title {
+        font-family: "Space Grotesk", sans-serif;
+        font-size: 1.18rem;
+        line-height: 1.2;
+      }
+
+      .score-badge {
+        flex-shrink: 0;
+        min-width: 64px;
+        text-align: center;
+        padding: 10px 12px;
+        border-radius: 999px;
+        border: 1px solid rgba(94, 171, 165, 0.22);
+        background: rgba(94, 171, 165, 0.1);
+        color: var(--primary-hi);
+        font-family: "JetBrains Mono", monospace;
+        font-size: 0.84rem;
+      }
+
+      .score-why {
+        color: var(--text-soft);
+        line-height: 1.7;
+        margin: 0 0 14px;
+      }
+
+      .score-read {
+        margin: 0;
+        padding-top: 14px;
+        border-top: 1px solid var(--line);
+        color: var(--text-muted);
+        line-height: 1.65;
+        font-size: 0.96rem;
+      }
+
+      .score-badge.low {
+        border-color: rgba(214, 141, 122, 0.22);
+        background: var(--danger-glow);
+        color: #ebb19f;
+      }
+
+      .score-badge.mid {
+        border-color: rgba(210, 181, 91, 0.22);
+        background: rgba(210, 181, 91, 0.1);
+        color: #e0c56f;
+      }
+
+      .two-col {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 22px;
+      }
+
+      .list-card {
+        padding: 28px;
+      }
+
+      .list-card h3 {
+        font-family: "Cinzel", serif;
+        font-size: 1.42rem;
+        margin-bottom: 18px;
+      }
+
+      .list-card ul,
+      .steps,
+      .angles {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+
+      .list-card li,
+      .steps li,
+      .angles li {
+        position: relative;
+        padding-left: 18px;
+        color: var(--text-soft);
+        line-height: 1.75;
+      }
+
+      .list-card li + li,
+      .steps li + li,
+      .angles li + li {
+        margin-top: 12px;
+      }
+
+      .list-card li::before,
+      .steps li::before,
+      .angles li::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 0.8em;
+        width: 7px;
+        height: 7px;
+        border-radius: 999px;
+        background: var(--primary);
+        box-shadow: 0 0 0 6px rgba(94, 171, 165, 0.08);
+      }
+
+      .list-card--danger {
+        border-left: 2px solid var(--danger);
+      }
+
+      .list-card--danger li::before {
+        background: var(--danger);
+        box-shadow: 0 0 0 6px rgba(214, 141, 122, 0.08);
+      }
+
+      .angles-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 18px;
+      }
+
+      .angle-card {
+        padding: 24px;
+        border-radius: var(--radius);
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.02);
+      }
+
+      .angle-card h3 {
+        font-family: "Space Grotesk", sans-serif;
+        font-size: 1.14rem;
+        margin-bottom: 12px;
+      }
+
+      .angle-card p {
+        margin: 0 0 14px;
+        color: var(--text-soft);
+        line-height: 1.7;
+      }
+
+      .angle-card .micro {
+        color: var(--primary);
+        margin-bottom: 8px;
+        display: block;
+      }
+
+      .steps {
+        counter-reset: step;
+      }
+
+      .steps li {
+        padding-left: 64px;
+        min-height: 44px;
+      }
+
+      .steps li::before {
+        counter-increment: step;
+        content: counter(step);
+        left: 0;
+        top: 0;
+        width: 40px;
+        height: 40px;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        background: rgba(94, 171, 165, 0.1);
+        color: var(--primary-hi);
+        font-family: "JetBrains Mono", monospace;
+        box-shadow: none;
+      }
+
+      .steps strong,
+      .angle-card strong,
+      .list-card strong {
+        color: #f4f6f8;
+      }
+
+      footer {
+        padding: 24px 0 48px;
+        border-top: 1px solid rgba(255, 255, 255, 0.05);
+      }
+
+      .footer-inner {
+        width: min(calc(100% - 32px), var(--max));
+        margin: 0 auto;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 14px;
+        color: var(--text-muted);
+        font-family: "JetBrains Mono", monospace;
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.18em;
+      }
+
+      @media (max-width: 980px) {
+        .hero,
+        .stats-grid,
+        .score-grid,
+        .two-col,
+        .angles-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 720px) {
+        .nav-inner,
+        .footer-inner {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+
+        main {
+          padding-top: 54px;
+        }
+
+        .panel,
+        .hero-card,
+        .score-card,
+        .list-card,
+        .stat,
+        .angle-card {
+          padding: 22px;
+        }
+
+        .nav-meta {
+          flex-wrap: wrap;
+          gap: 10px;
+        }
+
+        .score-top {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <nav class="nav">
+      <div class="nav-inner">
+        <div class="brand">Resonant</div>
+        <div class="nav-meta">
+          <span>Function-Level Review</span>
+          <span class="nav-pill">Pitch Scorecard</span>
+        </div>
+      </div>
+    </nav>
+
+    <main class="shell">
+      <header class="hero">
+        <div>
+          <span class="eyebrow">Product Capability Review</span>
+          <h1>Pitch Scorecard</h1>
+          <p class="lede">
+            This page scores Resonant on what the product actually does, not
+            how polished the repo sounds. The question is whether the system's
+            continuity, autonomy, ownership, and utility are strong enough to
+            carry a real pitch.
+          </p>
+        </div>
+
+        <aside class="hero-card">
+          <span class="micro">Current Read</span>
+          <strong>45 / 60</strong>
+          <p>
+            Strong product wedge. Real technical substance. Unusually strong
+            ownership story. The main missing proof is whether these
+            capabilities create a repeatable, must-have experience for a
+            specific first audience.
+          </p>
+        </aside>
+      </header>
+
+      <section>
+        <div class="panel">
+          <div class="section-head">
+            <span class="section-kicker">Core Claim</span>
+            <h2>What Resonant Is Really Claiming</h2>
+          </div>
+          <p class="claim">
+            <strong
+              >Resonant turns a model into a persistent, self-directed, locally
+              owned companion system that can remember context, act across
+              channels, and participate in day-to-day life instead of waiting
+              passively for the next chat message.</strong
+            >
+          </p>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-head">
+          <span class="section-kicker">Numbers</span>
+          <h2>By The Product Math</h2>
+          <p>
+            The score only matters if it helps us see where the pitch is
+            strongest and where a smart listener would still push back.
+          </p>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat">
+            <div class="stat-value" data-count="45">45</div>
+            <div class="micro stat-label">Total Score</div>
+            <div class="stat-note">Out of 60 possible points</div>
+          </div>
+          <div class="stat">
+            <div class="stat-value" data-count="5">5</div>
+            <div class="micro stat-label">Top Wedge</div>
+            <div class="stat-note">Continuity, autonomy, ownership</div>
+          </div>
+          <div class="stat">
+            <div class="stat-value" data-count="2">2</div>
+            <div class="micro stat-label">Weakest Areas</div>
+            <div class="stat-note">Onboarding and measurability</div>
+          </div>
+          <div class="stat">
+            <div class="stat-value" data-count="12">12</div>
+            <div class="micro stat-label">Capabilities Scored</div>
+            <div class="stat-note">Function, not presentation</div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-head">
+          <span class="section-kicker">Scorecard</span>
+          <h2>Product Capability Scorecard</h2>
+          <p>
+            These scores are about pitch strength. A feature scores highly when
+            it materially sharpens the product story, not just because it
+            exists.
+          </p>
+        </div>
+
+        <div class="score-grid">
+          <article class="score-card">
+            <div class="score-top">
+              <h3 class="score-title">Persistent Identity and Continuity</h3>
+              <div class="score-badge">5 / 5</div>
+            </div>
+            <p class="score-why">
+              Baseline requirement for any relational product. Without
+              continuity, the premise collapses.
+            </p>
+            <p class="score-read">
+              Strong. Session continuity, named threads, memory hooks, and
+              companion-specific configuration make this feel foundational
+              rather than bolted on.
+            </p>
+          </article>
+
+          <article class="score-card">
+            <div class="score-top">
+              <h3 class="score-title">Autonomous Outreach and Self-Direction</h3>
+              <div class="score-badge">5 / 5</div>
+            </div>
+            <p class="score-why">
+              One of the clearest wedge features against ordinary chat apps.
+            </p>
+            <p class="score-read">
+              Strong. Routines, pulse, impulses, watchers, timers, and failsafe
+              behavior make Resonant feel agentic rather than reactive.
+            </p>
+          </article>
+
+          <article class="score-card">
+            <div class="score-top">
+              <h3 class="score-title">Multi-Channel Presence</h3>
+              <div class="score-badge">4 / 5</div>
+            </div>
+            <p class="score-why">
+              Cross-channel persistence makes the companion feel like a system
+              in your life, not a tab in a browser.
+            </p>
+            <p class="score-read">
+              Strong. Web, PWA, Discord, Telegram, push, and voice are already
+              meaningful here.
+            </p>
+          </article>
+
+          <article class="score-card">
+            <div class="score-top">
+              <h3 class="score-title">Memory and Contextual Awareness</h3>
+              <div class="score-badge">4 / 5</div>
+            </div>
+            <p class="score-why">
+              Memory is what makes ongoing relationship and personalization
+              believable.
+            </p>
+            <p class="score-read">
+              Strong but nuanced. Hooks and memory architecture are convincing,
+              though the felt quality of recall still depends on real-world use
+              and prompt design.
+            </p>
+          </article>
+
+          <article class="score-card">
+            <div class="score-top">
+              <h3 class="score-title">Everyday Utility Beyond Chat</h3>
+              <div class="score-badge">4 / 5</div>
+            </div>
+            <p class="score-why">
+              A companion that only talks is easy to dismiss. One that helps
+              organize life is easier to justify.
+            </p>
+            <p class="score-read">
+              Strong. Command Center gives the product practical daily weight
+              beyond emotional conversation alone.
+            </p>
+          </article>
+
+          <article class="score-card">
+            <div class="score-top">
+              <h3 class="score-title">User Control and Ownership</h3>
+              <div class="score-badge">5 / 5</div>
+            </div>
+            <p class="score-why">
+              Core differentiator for technical users who do not want hosted
+              black-box intimacy products.
+            </p>
+            <p class="score-read">
+              Very strong. Self-hosted setup, local files, editable prompts,
+              skills, config, and MCP integration all reinforce ownership.
+            </p>
+          </article>
+
+          <article class="score-card">
+            <div class="score-top">
+              <h3 class="score-title">Extensibility</h3>
+              <div class="score-badge">5 / 5</div>
+            </div>
+            <p class="score-why">
+              A product pitch gets stronger when the system is a platform, not
+              just an app.
+            </p>
+            <p class="score-read">
+              Very strong. Skills, MCP servers, editable wake prompts, config,
+              and natural-language harness design all expand the surface area.
+            </p>
+          </article>
+
+          <article class="score-card">
+            <div class="score-top">
+              <h3 class="score-title">Voice and Embodied Interaction</h3>
+              <div class="score-badge mid">3 / 5</div>
+            </div>
+            <p class="score-why">
+              Voice helps the companion angle, but only if it feels integrated
+              rather than ornamental.
+            </p>
+            <p class="score-read">
+              Promising. The capability is here, but this is not yet the
+              clearest wedge compared with autonomy and ownership.
+            </p>
+          </article>
+
+          <article class="score-card">
+            <div class="score-top">
+              <h3 class="score-title">Onboarding and Setup Simplicity</h3>
+              <div class="score-badge low">2 / 5</div>
+            </div>
+            <p class="score-why">
+              A strong product can still be a weak pitch if adoption friction is
+              high.
+            </p>
+            <p class="score-read">
+              Weak for nontechnical users. Claude Code plus local setup narrows
+              the immediate audience even if the product is good.
+            </p>
+          </article>
+
+          <article class="score-card">
+            <div class="score-top">
+              <h3 class="score-title">Observable Outcomes and Retention Hooks</h3>
+              <div class="score-badge mid">3 / 5</div>
+            </div>
+            <p class="score-why">
+              A pitch gets stronger when the product visibly changes behavior or
+              keeps mattering over time.
+            </p>
+            <p class="score-read">
+              Mixed. The mechanisms for stickiness are there, but concrete
+              outcome loops and retention evidence are still thin.
+            </p>
+          </article>
+
+          <article class="score-card">
+            <div class="score-top">
+              <h3 class="score-title">Safety, Trust, and Boundaries</h3>
+              <div class="score-badge mid">3 / 5</div>
+            </div>
+            <p class="score-why">
+              Relational products get judged hard on safety, control, and
+              failure modes.
+            </p>
+            <p class="score-read">
+              Decent foundation. Local ownership helps, but the pitch gets
+              sharper with clearer language around permissions, oversight, and
+              boundary controls.
+            </p>
+          </article>
+
+          <article class="score-card">
+            <div class="score-top">
+              <h3 class="score-title">Evaluation and Measurability</h3>
+              <div class="score-badge low">2 / 5</div>
+            </div>
+            <p class="score-why">
+              Serious partners will ask what working means beyond vibes.
+            </p>
+            <p class="score-read">
+              Thin. There are many capabilities, but less explicit framing
+              around success metrics, reliability metrics, or relationship
+              quality metrics.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section class="two-col">
+        <article class="list-card">
+          <span class="section-kicker">Strengths</span>
+          <h3>What Actually Makes Resonant Pitchable</h3>
+          <ul>
+            <li>
+              <strong>Continuity is real.</strong> Resonant does not just
+              preserve messages; it structures ongoing identity and context.
+            </li>
+            <li>
+              <strong>Autonomy is real.</strong> The agent can initiate
+              routines, watchers, impulses, and failsafe behavior instead of
+              waiting passively.
+            </li>
+            <li>
+              <strong>The system can live where users live.</strong> Web,
+              mobile, Discord, Telegram, push, and voice make the companion
+              feel ambient.
+            </li>
+            <li>
+              <strong>It is useful, not just emotionally novel.</strong>
+              Command Center gives the product practical gravity.
+            </li>
+            <li>
+              <strong>The user owns the stack.</strong> This is a serious
+              differentiator versus hosted companion products.
+            </li>
+          </ul>
+        </article>
+
+        <article class="list-card list-card--danger">
+          <span class="section-kicker">Weak Points</span>
+          <h3>What Weakens The Pitch</h3>
+          <ul>
+            <li>
+              <strong>Setup friction is still high.</strong> The first audience
+              is clearly technical.
+            </li>
+            <li>
+              <strong>The strongest benefits are experiential.</strong> That
+              makes them harder to prove quickly without demos, stories, or
+              user evidence.
+            </li>
+            <li>
+              <strong>Safety language trails capability language.</strong> In
+              relational products, that imbalance will get noticed.
+            </li>
+            <li>
+              <strong>There is not yet a crisp outcome frame.</strong> Better
+              retention, stronger trust, higher daily engagement, and more
+              routine follow-through all need explicit measurement.
+            </li>
+          </ul>
+        </article>
+      </section>
+
+      <section>
+        <div class="section-head">
+          <span class="section-kicker">Angles</span>
+          <h2>The Best Function-Led Pitch Angles</h2>
+          <p>
+            If the pitch is going to land, it should anchor itself in concrete
+            functional contrast rather than generic AI-companion language.
+          </p>
+        </div>
+
+        <div class="angles-grid">
+          <article class="angle-card">
+            <span class="micro">Angle 01</span>
+            <h3>The AI That Doesn't Reset</h3>
+            <p>
+              Resonant is for people who are tired of re-explaining themselves
+              to AI.
+            </p>
+            <ul class="angles">
+              <li>Continuity</li>
+              <li>Memory hooks</li>
+              <li>Named threads</li>
+              <li>Context injection</li>
+            </ul>
+          </article>
+
+          <article class="angle-card">
+            <span class="micro">Angle 02</span>
+            <h3>The AI That Can Reach Back</h3>
+            <p>
+              Most chat products wait. Resonant can initiate.
+            </p>
+            <ul class="angles">
+              <li>Routines</li>
+              <li>Pulse</li>
+              <li>Impulses and watchers</li>
+              <li>Failsafe escalation</li>
+            </ul>
+          </article>
+
+          <article class="angle-card">
+            <span class="micro">Angle 03</span>
+            <h3>Own Your Companion</h3>
+            <p>
+              Most relationship-like AI products are hosted, opaque, and
+              rented. Resonant is local, inspectable, and customizable.
+            </p>
+            <ul class="angles">
+              <li>Self-hosted architecture</li>
+              <li>Local config and files</li>
+              <li>Editable prompts and skills</li>
+              <li>MCP integrations</li>
+            </ul>
+          </article>
+
+          <article class="angle-card">
+            <span class="micro">Angle 04</span>
+            <h3>Companion Plus Daily Utility</h3>
+            <p>
+              Resonant is not just a character shell. It can participate in the
+              user's real life organization.
+            </p>
+            <ul class="angles">
+              <li>Command Center</li>
+              <li>Planner and care tracking</li>
+              <li>Calendar and lists</li>
+              <li>Finances and stats</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-head">
+          <span class="section-kicker">Next Moves</span>
+          <h2>Fastest Ways To Strengthen The Product Pitch</h2>
+          <p>
+            These are product-proof moves, not just prettier storytelling.
+          </p>
+        </div>
+
+        <div class="panel">
+          <ol class="steps">
+            <li>
+              <strong>Add one canonical demo flow.</strong> Show continuity,
+              autonomy, and utility in one sequence: conversation, remembered
+              context, routine creation, later follow-up, no reset.
+            </li>
+            <li>
+              <strong>Define the first success metric.</strong> Retained days,
+              autonomy-enabled usage, ratio of agent-initiated meaningful
+              interactions, or weekly routine follow-through.
+            </li>
+            <li>
+              <strong>Make safety and control part of the core pitch.</strong>
+              For relational AI, trust is product function.
+            </li>
+            <li>
+              <strong>Name the first audience in functional terms.</strong>
+              Technical users who want a persistent AI companion they control,
+              researchers exploring relational agents, or power users who want
+              proactive routine management across channels.
+            </li>
+          </ol>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="footer-inner">
+        <span>Resonant Product Review</span>
+        <span>Function-Level Pitch Scorecard</span>
+      </div>
+    </footer>
+
+    <script>
+      const counters = document.querySelectorAll("[data-count]");
+      const easeOut = (t) => 1 - Math.pow(1 - t, 3);
+
+      counters.forEach((counter) => {
+        const target = Number(counter.dataset.count || "0");
+        const duration = 1100;
+        const start = performance.now();
+
+        const tick = (now) => {
+          const progress = Math.min((now - start) / duration, 1);
+          const value = Math.round(target * easeOut(progress));
+          counter.textContent = value.toString();
+          if (progress < 1) requestAnimationFrame(tick);
+        };
+
+        requestAnimationFrame(tick);
+      });
+    </script>
+  </body>
+</html>

@@ -1,11 +1,11 @@
 // The Scribe — periodic thread digest agent
-// Runs on Haiku via Agent SDK, extracts structured daily records from conversation
-import { query } from '@anthropic-ai/claude-agent-sdk';
+// Extracts structured daily records from conversation via the configured runtime provider.
 import { existsSync, mkdirSync, readFileSync, appendFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { getDb, getConfig, setConfig, getTodayThread } from './db.js';
 import { getResonantConfig } from '../config.js';
 import type { AgentService } from './agent.js';
+import { runTextOnlyQuery } from '../runtime/text-query.js';
 
 function today(): string {
   return new Date().toLocaleDateString('en-CA', { timeZone: getResonantConfig().identity.timezone });
@@ -136,36 +136,14 @@ ${conversationBlock}
 Write the digest block for this conversation. Remember: output ONLY the markdown, starting with ## ${nowTime()} — topic summary`;
 
   try {
-    let digestContent = '';
-
-    for await (const message of query({
+    const digestContent = await runTextOnlyQuery({
       prompt,
-      options: {
-        model: 'haiku',
-        systemPrompt: buildScribePrompt(),
-        maxTurns: 1,
-        permissionMode: 'plan' as any, // Read-only, no tool use
-        tools: [], // No tools — just generate text
-        persistSession: false,
-      },
-    })) {
-      if (!message || typeof message !== 'object' || !('type' in message)) continue;
-      const msg = message as any;
-      if (msg.type === 'assistant' && msg.message?.content) {
-        for (const block of msg.message.content) {
-          if (block.type === 'text' && block.text) {
-            digestContent += block.text;
-          }
-        }
-      }
-      // Also capture from result message
-      if (msg.type === 'result' && msg.result) {
-        if (!digestContent) digestContent = msg.result;
-      }
-    }
+      systemPrompt: buildScribePrompt(),
+      threadId: thread.id,
+    });
 
     if (!digestContent.trim()) {
-      dlog('Skipped — Haiku returned empty content');
+      dlog('Skipped — digest runtime returned empty content');
       return;
     }
 

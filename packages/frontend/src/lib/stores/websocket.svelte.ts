@@ -109,7 +109,7 @@ export async function requestNotificationPermission(): Promise<NotificationPermi
 
 // Error state
 let lastError = $state<{ code: string; message: string } | null>(null);
-let pendingMessages = $state<Array<{ threadId: string; content: string; contentType: string; replyToId?: string }>>([]);
+let pendingMessages = $state<Array<{ threadId?: string | null; content: string; contentType: string; replyToId?: string }>>([]);
 
 // Last seen sequence for sync
 let lastSeenSequence = $state(0);
@@ -170,6 +170,7 @@ function handleMessage(event: MessageEvent) {
         break;
 
       case 'message':
+        if (!activeThreadId) activeThreadId = msg.message.thread_id;
         if (msg.message.thread_id === activeThreadId) {
           messages = [...messages, msg.message];
         }
@@ -207,6 +208,7 @@ function handleMessage(event: MessageEvent) {
         break;
 
       case 'stream_start':
+        if (!activeThreadId) activeThreadId = msg.threadId;
         streamingMessageId = msg.messageId;
         streamingTokens = '';
         break;
@@ -269,7 +271,8 @@ function handleMessage(event: MessageEvent) {
           last_activity_at: msg.thread.created_at,
           last_message_preview: null,
           pinned_at: null,
-        }, ...threads];
+        }, ...threads.filter(t => t.id !== msg.thread.id)];
+        if (!activeThreadId) activeThreadId = msg.thread.id;
         break;
 
       case 'thread_list':

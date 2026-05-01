@@ -2,14 +2,19 @@
   import { getConfig, updateSetting } from '$lib/stores/settings.svelte';
 
   const MODELS = [
-    { id: 'claude-opus-4-6', label: 'Opus' },
-    { id: 'claude-sonnet-4-6', label: 'Sonnet' },
-    { id: 'claude-haiku-4-5', label: 'Haiku' },
+    { id: 'claude-opus-4-6', label: 'Claude Opus', provider: 'Claude', providerId: 'claude-code', caps: 'Sub + MCP' },
+    { id: 'claude-sonnet-4-6', label: 'Claude Sonnet', provider: 'Claude', providerId: 'claude-code', caps: 'Sub + MCP' },
+    { id: 'claude-haiku-4-5', label: 'Claude Haiku', provider: 'Claude', providerId: 'claude-code', caps: 'Sub + MCP' },
+    { id: 'gpt-5.5', label: 'GPT-5.5', provider: 'OpenAI', providerId: 'openai-codex', caps: 'Sub + tools' },
+    { id: 'gpt-5.4', label: 'GPT-5.4', provider: 'OpenAI', providerId: 'openai-codex', caps: 'Sub + tools' },
+    { id: 'gpt-5.4-mini', label: 'GPT-5.4 Mini', provider: 'OpenAI', providerId: 'openai-codex', caps: 'Sub + tools' },
+    { id: 'gpt-5.3-codex', label: 'GPT-5.3 Codex', provider: 'OpenAI', providerId: 'openai-codex', caps: 'Sub + tools' },
+    { id: 'gpt-5.2', label: 'GPT-5.2', provider: 'OpenAI', providerId: 'openai-codex', caps: 'Sub + tools' },
   ] as const;
 
   let config = $derived(getConfig());
-  let currentModel = $derived(config['agent.model'] || 'claude-opus-4-6');
-  let currentLabel = $derived(MODELS.find(m => m.id === currentModel)?.label || 'Opus');
+  let currentModel = $derived(config['agent.model'] || 'claude-sonnet-4-6');
+  let currentLabel = $derived(MODELS.find(m => m.id === currentModel)?.label || currentModel);
 
   let open = $state(false);
 
@@ -20,6 +25,8 @@
   async function selectModel(modelId: string) {
     open = false;
     if (modelId === currentModel) return;
+    const selected = MODELS.find(m => m.id === modelId);
+    if (selected) await updateSetting('agent.provider', selected.providerId);
     await updateSetting('agent.model', modelId);
   }
 
@@ -46,7 +53,8 @@
           class:active={model.id === currentModel}
           onclick={() => selectModel(model.id)}
         >
-          {model.label}
+          <span>{model.label}</span>
+          <span class="model-provider">{model.provider} / {model.caps}</span>
         </button>
       {/each}
     </div>
@@ -90,7 +98,7 @@
     display: flex;
     flex-direction: column;
     gap: 0.125rem;
-    min-width: 6rem;
+    min-width: 11rem;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     animation: dropIn 0.15s ease-out;
   }
@@ -113,6 +121,10 @@
     text-align: left;
     transition: all var(--transition);
     white-space: nowrap;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
   }
 
   .model-option:hover {
@@ -123,5 +135,12 @@
   .model-option.active {
     color: var(--accent);
     background: var(--bg-active);
+  }
+
+  .model-provider {
+    font-family: var(--font-body);
+    font-size: 0.625rem;
+    letter-spacing: 0.03em;
+    color: var(--text-muted);
   }
 </style>

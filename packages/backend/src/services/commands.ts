@@ -5,7 +5,7 @@ import { existsSync, readdirSync, readFileSync } from 'fs';
 import { join } from 'path';
 import crypto from 'crypto';
 import type { CommandRegistryEntry, ServerMessage } from '@resonant/shared';
-import { scanSkills } from './hooks.js';
+import { scanSkills } from '../runtime-lifecycle/context-builder.js';
 import {
   getDb,
   getThread,
@@ -226,15 +226,23 @@ function handleModel(args: string | undefined): ServerMessage {
   const modelId = args?.trim();
   if (!modelId) {
     const current = getConfig('agent.model') || getResonantConfig().agent.model;
+    const provider = getConfig('agent.provider') || getResonantConfig().agent.provider;
     return {
       type: 'command_result',
       name: 'model',
       success: true,
-      data: { message: `Current model: ${current}` },
+      data: { message: `Current model: ${provider}/${current}` },
       display: 'toast',
     };
   }
 
+  if (modelId.startsWith('openai-codex:') || /^gpt-\d/i.test(modelId) || /^o\d/i.test(modelId)) {
+    setConfig('agent.provider', 'openai-codex');
+  } else if (modelId.startsWith('openrouter:')) {
+    setConfig('agent.provider', 'openrouter');
+  } else {
+    setConfig('agent.provider', 'claude-code');
+  }
   setConfig('agent.model', modelId);
 
   return {
