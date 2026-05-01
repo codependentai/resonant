@@ -137,7 +137,7 @@ describe('identity rendering', () => {
         provider: 'claude-code',
         autonomous_provider: 'claude-code',
         cwd: resolve('.'),
-        claude_md_path: resolve('CLAUDE.md'),
+        claude_md_path: resolve('examples/CLAUDE.md'),
         mcp_json_path: resolve('.mcp.json'),
         model: 'claude-sonnet-4-6',
         model_autonomous: 'claude-sonnet-4-6',
@@ -149,6 +149,6 @@ describe('identity rendering', () => {
     }));
 
     expect(identity.mode).toBe('legacy-claude');
-    expect(renderIdentityPrompt(identity, 'claude-code')).toContain('# Echo');
+    expect(renderIdentityPrompt(identity, 'claude-code')).toContain('# Companion System Prompt');
   });
 });

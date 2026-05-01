@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 vi.mock('../config.js', () => ({
   getResonantConfig: vi.fn().mockReturnValue({
     identity: { companion_name: 'Echo', user_name: 'Jordan', timezone: 'UTC' },
-    agent: { cwd: 'C:/resonant-v1' },
+    agent: { cwd: process.cwd() },
     integrations: { life_api_url: '', mind_cloud: { enabled: false, mcp_url: '' } },
     command_center: { enabled: false },
   }),
@@ -55,4 +55,3 @@ describe('buildOrientationContext', () => {
     expect(context).toContain('RECENT REACTIONS');
   });
 });
-
