@@ -5,6 +5,8 @@ import {
   getThread,
   listPendingTimers,
 } from '../services/db.js';
+import { FILE_INTERNAL_TOOLS } from './file-tools.js';
+import { WEB_INTERNAL_TOOLS } from './web-tools.js';
 
 export type InternalToolPermission = 'read' | 'write' | 'external';
 
@@ -338,7 +340,7 @@ export const COMMAND_CENTER_TOOLS: InternalToolDefinition[] = COMMAND_CENTER_TOO
   cliExamples: [],
 }));
 
-export const ALL_INTERNAL_TOOLS = [...INTERNAL_TOOLS, ...COMMAND_CENTER_TOOLS];
+export const ALL_INTERNAL_TOOLS = [...INTERNAL_TOOLS, ...FILE_INTERNAL_TOOLS, ...WEB_INTERNAL_TOOLS, ...COMMAND_CENTER_TOOLS];
 
 export function getInternalTool(name: string): InternalToolDefinition | undefined {
   return ALL_INTERNAL_TOOLS.find(tool => tool.name === name);
@@ -449,6 +451,8 @@ export function buildProviderToolCallInstructions(): string {
     'Then stop. Resonant will execute it and continue the turn with the tool result.',
     '',
     'Currently executable tools:',
+    'If the user provides a local filesystem path, prefer file.stat, file.list, file.read, file.search, file.write, or file.edit. Do not answer from memory when a path should be inspected directly.',
+    'If the user provides a web URL and current page contents are needed, prefer web.fetch. Do not answer from memory when a URL should be inspected directly.',
     ...executable.map(tool => `- ${tool.name}: ${tool.description}`),
   ];
   return lines.join('\n');

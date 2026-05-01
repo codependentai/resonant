@@ -2,6 +2,17 @@
 
 All notable changes to Resonant will be documented in this file.
 
+## [2.2.1] - 2026-05-01
+
+### Tool Runtime Patch
+
+- **Thread continuity for non-session runtimes** — OpenAI Codex and other providers without native session resume now receive bounded recent thread history, so chat context is preserved across turns.
+- **Provider-neutral file tools** — Added executable `file.stat`, `file.list`, `file.read`, `file.search`, `file.write`, and `file.edit` tools with guarded write roots and backup behavior.
+- **Provider-neutral web fetch** — Added `web.fetch` for public HTTP/HTTPS pages with SSRF protections, timeouts, text-only response handling, and redirect safeguards.
+- **Path and URL preflight** — Pasted local paths and public URLs are inspected before model runtime and surfaced as visible tool activity in chat.
+
+---
+
 ## [2.2.0] - 2026-05-01
 
 ### Runtime and Configuration

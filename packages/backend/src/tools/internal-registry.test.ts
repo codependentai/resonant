@@ -1,4 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
+import { mkdtempSync, readFileSync, rmSync } from 'fs';
+import { join } from 'path';
+import { tmpdir } from 'os';
 
 vi.mock('../services/db.js', () => ({
   listPendingTimers: vi.fn().mockReturnValue([
@@ -23,6 +26,10 @@ import {
 describe('internal tool registry', () => {
   it('contains the first provider-neutral tool groups', () => {
     expect(getInternalTool('timer.list')).toBeTruthy();
+    expect(getInternalTool('file.read')).toBeTruthy();
+    expect(getInternalTool('file.write')).toBeTruthy();
+    expect(getInternalTool('file.edit')).toBeTruthy();
+    expect(getInternalTool('web.fetch')).toBeTruthy();
     expect(getInternalTool('share.file')).toBeTruthy();
     expect(getInternalTool('canvas.create')).toBeTruthy();
     expect(getInternalTool('semantic.search')).toBeTruthy();
@@ -39,6 +46,40 @@ describe('internal tool registry', () => {
     const result = await executeInternalTool('timer.list', {}, { threadId: 'thread-1' });
     expect(result.ok).toBe(true);
     expect(result.text).toContain('Tea');
+  });
+
+  it('executes read/write/edit file tools without shelling out through sc.mjs', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'resonant-file-tools-'));
+    const path = join(dir, 'note.md');
+    try {
+      const write = await executeInternalTool('file.write', {
+        path,
+        content: 'hello user',
+        mode: 'create_new',
+      }, {});
+      expect(write.ok).toBe(true);
+
+      const read = await executeInternalTool('file.read', { path }, {});
+      expect(read.ok).toBe(true);
+      expect(read.text).toContain('hello user');
+
+      const edit = await executeInternalTool('file.edit', {
+        path,
+        search: 'user',
+        replace: 'companion',
+        expectedOccurrences: 1,
+      }, {});
+      expect(edit.ok).toBe(true);
+      expect(readFileSync(path, 'utf-8')).toBe('hello companion');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('blocks web.fetch against localhost targets', async () => {
+    const result = await executeInternalTool('web.fetch', { url: 'http://127.0.0.1:3111/api/health' }, {});
+    expect(result.ok).toBe(false);
+    expect(result.text).toContain('Refusing');
   });
 
   it('returns model-visible errors for unsupported registered tools', async () => {

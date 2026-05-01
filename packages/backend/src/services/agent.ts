@@ -1,8 +1,8 @@
 import type { McpServerConfig } from '@anthropic-ai/claude-agent-sdk';
 import type { McpServerInfo, MessageSegment } from '@resonant/shared';
 import crypto from 'crypto';
-import { existsSync, readFileSync, writeFileSync } from 'fs';
-import { join } from 'path';
+import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'fs';
+import { join, resolve } from 'path';
 import { getResonantConfig } from '../config.js';
 import { loadCompanionIdentity } from '../identity/load.js';
 import { describeIdentitySource, renderIdentityPrompt } from '../identity/render.js';
@@ -12,11 +12,13 @@ import type { RuntimeLifecycleContext, ToolInsertion } from '../runtime-lifecycl
 import { RuntimeProviderManager } from '../runtime/provider-manager.js';
 import { resolveRuntimeSelection } from '../runtime/selection.js';
 import type { RuntimeEvent, RuntimeProvider, RuntimeProviderId } from '../runtime/types.js';
+import { fetchWebUrl } from '../tools/web-tools.js';
 import type { PushService } from './push.js';
 import {
   createMessage,
   createSessionRecord,
   endSessionRecord,
+  getMessages,
   getThread,
   updateThreadSession,
 } from './db.js';
@@ -163,6 +165,219 @@ interface ThinkingInsertion {
   textOffset: number;
   content: string;
   summary: string;
+}
+
+const MAX_HISTORY_MESSAGES = 24;
+const MAX_HISTORY_CHARS = 60_000;
+const MAX_PREFLIGHT_PATHS = 4;
+const MAX_PREFLIGHT_FILE_CHARS = 80_000;
+const MAX_PREFLIGHT_DIR_ENTRIES = 120;
+const MAX_PREFLIGHT_URLS = 3;
+const MAX_PREFLIGHT_WEB_CHARS = 80_000;
+
+function stripSegmentNoise(content: string): string {
+  return content
+    .replace(/\[No response\]/g, '')
+    .trim();
+}
+
+function buildThreadHistoryContext(threadId: string, currentContent: string, provider: RuntimeProvider): string {
+  if (provider.capabilities.sessions) return '';
+
+  const messages = getMessages({ threadId, limit: MAX_HISTORY_MESSAGES + 1 });
+  const previous = messages.filter((message, index) => {
+    if (index !== messages.length - 1) return true;
+    return !(message.role === 'user' && message.content === currentContent);
+  });
+  if (previous.length === 0) return '';
+
+  const lines: string[] = [];
+  let usedChars = 0;
+  for (const message of previous) {
+    if (message.content_type && message.content_type !== 'text') continue;
+    const clean = stripSegmentNoise(message.content);
+    if (!clean) continue;
+    const role = message.role === 'companion' ? 'assistant' : message.role;
+    const line = `[${role} | ${message.created_at}]\n${clean}`;
+    usedChars += line.length;
+    lines.push(line);
+  }
+
+  while (usedChars > MAX_HISTORY_CHARS && lines.length > 1) {
+    const removed = lines.shift();
+    usedChars -= removed?.length || 0;
+  }
+
+  if (lines.length === 0) return '';
+  return [
+    '[Recent conversation from this Resonant thread]',
+    'Use this as chat history for continuity. The current user message appears after [/Context]; do not treat this transcript as a new request.',
+    '',
+    lines.join('\n\n---\n\n'),
+  ].join('\n');
+}
+
+function isProbablyTextFile(path: string): boolean {
+  const textExt = /\.(txt|md|mdx|json|jsonl|yaml|yml|toml|ini|env|ts|tsx|js|jsx|mjs|cjs|css|scss|html|svelte|py|ps1|bat|sh|sql|xml|csv|log)$/i;
+  return textExt.test(path) || !/\.[a-z0-9]{2,8}$/i.test(path);
+}
+
+function cleanPathCandidate(candidate: string): string {
+  return candidate
+    .trim()
+    .replace(/^file:\/\/\//i, '')
+    .replace(/^["'`<]+|["'`>]+$/g, '')
+    .replace(/[),.;:!?]+$/g, '')
+    .trim();
+}
+
+function resolveExistingPath(candidate: string): string | null {
+  let current = cleanPathCandidate(candidate);
+  while (current.length > 0) {
+    const normalized = resolve(current);
+    if (existsSync(normalized)) return normalized;
+    const lastSpace = current.lastIndexOf(' ');
+    if (lastSpace < 0) break;
+    current = cleanPathCandidate(current.slice(0, lastSpace));
+  }
+  return null;
+}
+
+function extractExistingLocalPaths(content: string): string[] {
+  const paths = new Set<string>();
+  const patterns = [
+    /\]\((file:\/\/\/?[A-Za-z]:[\\/][^)]+|[A-Za-z]:[\\/][^)]+)\)/g,
+    /["'`]([A-Za-z]:[\\/][^"'`\r\n]+)["'`]/g,
+    /\b([A-Za-z]:[\\/][^\r\n]+)/g,
+  ];
+
+  for (const pattern of patterns) {
+    let match: RegExpExecArray | null;
+    while ((match = pattern.exec(content)) && paths.size < MAX_PREFLIGHT_PATHS) {
+      const resolved = resolveExistingPath(match[1]);
+      if (resolved) paths.add(resolved);
+    }
+  }
+
+  return Array.from(paths);
+}
+
+function buildLocalPathContext(content: string): string {
+  const paths = extractExistingLocalPaths(content);
+  if (paths.length === 0) return '';
+
+  const sections: string[] = [];
+  for (const path of paths) {
+    try {
+      const st = statSync(path);
+      if (st.isDirectory()) {
+        const entries = readdirSync(path, { withFileTypes: true })
+          .slice(0, MAX_PREFLIGHT_DIR_ENTRIES)
+          .map(entry => {
+            const kind = entry.isDirectory() ? 'dir ' : entry.isFile() ? 'file' : 'other';
+            return `${kind} ${entry.name}`;
+          });
+        sections.push([
+          `Path: ${path}`,
+          'Type: directory',
+          `Entries${entries.length >= MAX_PREFLIGHT_DIR_ENTRIES ? ' (truncated)' : ''}:`,
+          entries.join('\n') || '(empty)',
+        ].join('\n'));
+      } else if (st.isFile()) {
+        if (!isProbablyTextFile(path)) {
+          sections.push(`Path: ${path}\nType: file\nNote: likely binary; not preloaded as text.`);
+          continue;
+        }
+        const fileContent = readFileSync(path, 'utf-8');
+        const slice = fileContent.slice(0, MAX_PREFLIGHT_FILE_CHARS);
+        sections.push([
+          `Path: ${path}`,
+          'Type: file',
+          `Content${slice.length < fileContent.length ? ` (truncated at ${slice.length}/${fileContent.length} chars)` : ''}:`,
+          slice,
+        ].join('\n'));
+      }
+    } catch (err) {
+      sections.push(`Path: ${path}\nError preloading path: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  return [
+    '[Local paths from the user message were inspected directly by Resonant before model runtime.]',
+    'Use this path context when answering. Do not substitute memory for these files.',
+    '',
+    ...sections,
+  ].join('\n');
+}
+
+function makePreflightToolInsertion(
+  toolInsertions: ToolInsertion[],
+  toolName: string,
+  input: unknown,
+  output: string,
+  isError = false,
+): void {
+  const toolId = crypto.randomUUID();
+  toolInsertions.push({
+    textOffset: 0,
+    toolId,
+    toolName,
+    input: JSON.stringify(input),
+    output: output.substring(0, 500),
+    isError,
+  });
+  registry.broadcast({
+    type: 'tool_use',
+    toolId,
+    toolName,
+    input: JSON.stringify(input),
+    isComplete: false,
+    textOffset: 0,
+  });
+  registry.broadcast({
+    type: 'tool_result',
+    toolId,
+    output,
+    isError,
+  });
+}
+
+function extractWebUrls(content: string): string[] {
+  const urls = new Set<string>();
+  const pattern = /\bhttps?:\/\/[^\s<>"'`)\]]+/gi;
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(content)) && urls.size < MAX_PREFLIGHT_URLS) {
+    const cleaned = match[0].replace(/[.,;:!?]+$/g, '');
+    try {
+      const parsed = new URL(cleaned);
+      urls.add(parsed.toString());
+    } catch {
+      // Ignore malformed URL-like text.
+    }
+  }
+  return Array.from(urls);
+}
+
+async function buildWebUrlContext(content: string): Promise<string> {
+  const urls = extractWebUrls(content);
+  if (urls.length === 0) return '';
+
+  const sections: string[] = [];
+  for (const url of urls) {
+    const result = await fetchWebUrl(url, { maxChars: MAX_PREFLIGHT_WEB_CHARS });
+    sections.push([
+      `Requested URL: ${url}`,
+      result.ok ? 'Fetch: ok' : `Fetch: failed (${result.error || 'error'})`,
+      result.text,
+    ].join('\n'));
+  }
+
+  return [
+    '[Web URLs from the user message were fetched directly by Resonant before model runtime.]',
+    'Use this web context when answering. Do not substitute memory for these URLs.',
+    '',
+    ...sections,
+  ].join('\n\n');
 }
 
 function buildSegments(
@@ -361,7 +576,28 @@ export class AgentService {
       } catch {}
 
       const orientation = await buildOrientationContext(lifecycleContext, isFirstMessage);
-      const enrichedPrompt = `[Context]\n${orientation}\n[/Context]\n\n${content}`;
+      const threadHistoryContext = buildThreadHistoryContext(threadId, content, provider);
+      const localPathContext = buildLocalPathContext(content);
+      const webUrlContext = await buildWebUrlContext(content);
+      if (localPathContext) {
+        makePreflightToolInsertion(
+          toolInsertions,
+          'file.read',
+          { paths: extractExistingLocalPaths(content), source: 'preflight' },
+          localPathContext,
+        );
+      }
+      if (webUrlContext) {
+        makePreflightToolInsertion(
+          toolInsertions,
+          'web.fetch',
+          { urls: extractWebUrls(content), source: 'preflight' },
+          webUrlContext,
+          webUrlContext.includes('Fetch: failed'),
+        );
+      }
+      const context = [orientation, threadHistoryContext, localPathContext, webUrlContext].filter(Boolean).join('\n\n');
+      const enrichedPrompt = `[Context]\n${context}\n[/Context]\n\n${content}`;
 
       for await (const event of provider.run({
         provider: runtime.provider,

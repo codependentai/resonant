@@ -1,6 +1,6 @@
 {
   "name": "resonant",
-  "version": "2.2.0",
+  "version": "2.2.1",
   "private": true,
   "description": "Self-hosted relational AI companion framework with provider-pluggable runtimes",
   "workspaces": ["packages/shared", "packages/backend", "packages/frontend"],
