@@ -6,6 +6,9 @@ identity:
   companion_name: "Echo"      # Your AI companion's name
   user_name: "Alex"            # Your name
   timezone: "America/New_York" # Your timezone (used for scheduling)
+  profile_path: "./identity/companion.profile.yaml"
+  companion_md_path: "./identity/companion.md"
+  provider_overrides_path: "./identity/provider-overrides"
 
 server:
   port: 3002
@@ -18,7 +21,7 @@ auth:
 agent:
   provider: "claude-code"             # claude-code | openai-codex | openrouter
   autonomous_provider: "claude-code"
-  cwd: "."                     # Working directory for Claude Agent SDK
+  cwd: "."                     # Working directory for the selected runtime
   claude_md_path: "./CLAUDE.md"
   mcp_json_path: "./.mcp.json"
   model: "claude-sonnet-4-6"          # Model for interactive messages

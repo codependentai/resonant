@@ -1,194 +1,167 @@
 # Remote Access
 
-Resonant runs on your machine. To access it from your phone, tablet, or when you're away from home, you need to expose it to the network. Here are three approaches, from simplest to most powerful.
+Resonant starts as a local app. For a private companion deployment, the baseline remote-access layer is **Tailscale**. Cloudflare Tunnel is optional when you need a public HTTPS domain, easier PWA installation, or push-notification-compatible HTTPS.
+
+Do not expose port `3002` directly to the public internet.
+
+## Recommended Patterns
+
+| Pattern | Use when | Public internet exposure |
+| --- | --- | --- |
+| Local network | You only use Resonant at home | LAN only |
+| Tailscale | You want private access from your own devices | No public app URL |
+| Tailscale + Cloudflare Tunnel | You need HTTPS/domain/PWA/push while keeping private admin access | Public hostname protected by Cloudflare Access and Resonant auth |
+| Cloudflare-only | Advanced public deployment | Not recommended for personal companion installs unless you understand the risk |
+
+Tailscale is not a technical dependency of Cloudflare Tunnel. It is the required safety baseline for the way Resonant should be deployed privately: it gives you a private management path even if DNS, Cloudflare, or the public hostname fails.
 
 ## Option 1: Local Network Only
 
-The easiest option. Access Resonant from any device on your WiFi.
+Use this only on a trusted home network.
 
-1. Open `resonant.yaml` and change:
-   ```yaml
-   server:
-     host: "0.0.0.0"    # Was "127.0.0.1"
-   auth:
-     password: "your-password-here"    # REQUIRED when opening to network
-   ```
+```yaml
+server:
+  host: "0.0.0.0"
+auth:
+  password: "your-password-here"
+```
 
-2. Restart Resonant
+Restart Resonant, find your local IP, and open `http://192.168.x.x:3002` from another device on the same WiFi.
 
-3. Find your computer's local IP:
-   - **Windows:** `ipconfig` → look for IPv4 Address (usually `192.168.x.x`)
-   - **macOS:** System Settings → Network → your connection → IP Address
-   - **Linux:** `ip addr` or `hostname -I`
+## Option 2: Tailscale (Private Default)
 
-4. Access from any device on your WiFi: `http://192.168.1.100:3002` (replace with your IP)
+Tailscale creates a private network between your devices. It needs no router port forwarding and keeps Resonant reachable only inside your tailnet.
 
-**Limitations:** Only works on your local network. No access when you're away from home.
-
-## Option 2: Tailscale (Recommended)
-
-Tailscale creates a private network between your devices. It's free for personal use, works everywhere, and requires no port forwarding or DNS configuration.
-
-### Setup
-
-1. **Install Tailscale** on your computer (the one running Resonant):
+1. Install Tailscale on the computer running Resonant:
    - [tailscale.com/download](https://tailscale.com/download)
-   - Sign in with Google, Microsoft, or GitHub
+   - Linux quick install: `curl -fsSL https://tailscale.com/install.sh | sh`
+2. Install Tailscale on your phone/tablet/other computers.
+3. Sign in with the same Tailscale account.
+4. Configure Resonant:
 
-2. **Install Tailscale** on your phone/tablet:
-   - iOS: App Store → Tailscale
-   - Android: Play Store → Tailscale
-   - Sign in with the same account
-
-3. **Configure Resonant** to listen on all interfaces:
    ```yaml
    server:
      host: "0.0.0.0"
    auth:
-     password: "your-password-here"
+     password: "set-a-strong-password"
    ```
 
-4. **Find your Tailscale IP:**
+5. Find your Tailscale IP:
+
    ```bash
    tailscale ip -4
-   # Shows something like 100.64.x.x
    ```
 
-5. **Access from any Tailscale device:** `http://100.64.x.x:3002`
+6. Open `http://100.x.y.z:3002` from any Tailscale device.
 
-### Why Tailscale
+Optional: enable MagicDNS in the Tailscale admin console and use `http://machine-name:3002`.
 
-- Works anywhere — home, office, coffee shop, mobile data
-- Encrypted end-to-end
-- No ports to open on your router
-- No domain name needed
-- Free for up to 100 devices
-- Your Resonant instance is completely private — only your Tailscale devices can reach it
+## Option 3: Cloudflare Tunnel (Optional HTTPS/Public Domain)
 
-### Optional: Magic DNS
+Cloudflare Tunnel maps a public HTTPS hostname such as `chat.yourdomain.com` to local Resonant without opening inbound router ports. Use it when you need a domain, browser-friendly HTTPS, PWA install, or push notifications.
 
-Tailscale can give your machine a name so you don't need to remember the IP:
+For personal companion installs, use all of these together:
 
-1. Enable MagicDNS in the Tailscale admin console
-2. Access Resonant at: `http://your-machine-name:3002`
+- Tailscale installed and working for private/admin access
+- Resonant `auth.password`
+- Cloudflare Access in front of the hostname
+- `cors.origins` set to the public HTTPS URL
 
-### Optional: HTTPS with Tailscale
+### Cloudflare Setup
 
-Tailscale can provision HTTPS certificates automatically:
+Prerequisites:
+
+- A domain on Cloudflare
+- `cloudflared` installed
+- Resonant running locally on `http://localhost:3002`
+
+Install `cloudflared`:
 
 ```bash
-tailscale cert your-machine-name.your-tailnet.ts.net
+# Windows
+winget install Cloudflare.cloudflared
+
+# macOS
+brew install cloudflared
+
+# Linux
+curl -L --output cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
+sudo dpkg -i cloudflared.deb
 ```
 
-Then configure a reverse proxy (Caddy or nginx) to serve HTTPS.
+Create and route a tunnel:
 
-## Option 3: Cloudflare Tunnel (Public HTTPS)
-
-Cloudflare Tunnel gives you a proper HTTPS domain name (like `chat.yourdomain.com`) without opening any ports. This is what we use.
-
-### Prerequisites
-
-- A domain name (you can buy one through Cloudflare for ~$10/year)
-- A free Cloudflare account with your domain added
-
-### Setup
-
-1. **Install cloudflared:**
-
-   **Windows:**
-   ```bash
-   winget install Cloudflare.cloudflared
-   ```
-
-   **macOS:**
-   ```bash
-   brew install cloudflared
-   ```
-
-   **Linux:**
-   ```bash
-   curl -L --output cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
-   sudo dpkg -i cloudflared.deb
-   ```
-
-2. **Authenticate:**
-   ```bash
-   cloudflared tunnel login
-   ```
-   This opens your browser. Select the domain you want to use.
-
-3. **Create a tunnel:**
-   ```bash
-   cloudflared tunnel create resonant
-   ```
-   Note the tunnel ID it gives you.
-
-4. **Configure the tunnel.** Create `~/.cloudflared/config.yml`:
-   ```yaml
-   tunnel: YOUR-TUNNEL-ID
-   credentials-file: /path/to/.cloudflared/YOUR-TUNNEL-ID.json
-
-   ingress:
-     - hostname: chat.yourdomain.com
-       service: http://localhost:3002
-     - service: http_status:404
-   ```
-
-5. **Add the DNS record:**
-   ```bash
-   cloudflared tunnel route dns resonant chat.yourdomain.com
-   ```
-
-6. **Set a password** in `resonant.yaml` (your site is now public!):
-   ```yaml
-   auth:
-     password: "a-strong-password"
-   ```
-
-7. **Add the domain to CORS origins** in `resonant.yaml`:
-   ```yaml
-   cors:
-     origins:
-       - "https://chat.yourdomain.com"
-   ```
-
-8. **Start the tunnel:**
-   ```bash
-   cloudflared tunnel run resonant
-   ```
-
-9. **Access your companion at:** `https://chat.yourdomain.com`
-
-### Running the tunnel as a service
-
-**Windows:**
 ```bash
+cloudflared tunnel login
+cloudflared tunnel create resonant
+cloudflared tunnel route dns resonant chat.yourdomain.com
+```
+
+Create `~/.cloudflared/config.yml`:
+
+```yaml
+tunnel: YOUR-TUNNEL-ID
+credentials-file: /path/to/.cloudflared/YOUR-TUNNEL-ID.json
+
+ingress:
+  - hostname: chat.yourdomain.com
+    service: http://localhost:3002
+  - service: http_status:404
+```
+
+Update `resonant.yaml`:
+
+```yaml
+server:
+  host: "127.0.0.1"
+auth:
+  password: "set-a-strong-password"
+cors:
+  origins:
+    - "https://chat.yourdomain.com"
+```
+
+In Cloudflare Zero Trust, create a self-hosted Access application for `chat.yourdomain.com` before relying on the tunnel. Add an Allow policy for only the email/device group that should reach the companion. Without Access, the hostname is available to the public internet and only Resonant's password stands between the world and your app.
+
+Run the tunnel:
+
+```bash
+cloudflared tunnel run resonant
+```
+
+Install as a service:
+
+```bash
+# Windows, from an Administrator shell
 cloudflared service install
-```
 
-**macOS/Linux:**
-```bash
+# macOS/Linux
 sudo cloudflared service install
 ```
 
-This makes the tunnel start automatically on boot.
+## PWA and Push Notifications
 
-### PWA Installation
+Browser push and PWA install flows generally require HTTPS. Cloudflare Tunnel is the simplest public HTTPS path. After the tunnel is working:
 
-Once you have HTTPS (via Cloudflare Tunnel), you can install Resonant as a PWA on your phone:
-
-1. Open `https://chat.yourdomain.com` in Safari (iOS) or Chrome (Android)
-2. iOS: Share → Add to Home Screen
-3. Android: Menu → Install app
-
-It looks and feels like a native app, with push notifications and offline support.
+1. Configure VAPID keys in `.env` or Settings.
+2. Set `push.vapid_contact` to a real `mailto:` or HTTPS contact URI.
+3. Open the Cloudflare URL on your phone.
+4. Install the PWA from the browser menu.
+5. Enable notifications from Settings.
 
 ## Security Checklist
 
-Regardless of which method you choose:
+- [ ] Tailscale is installed and verified for private/admin access.
+- [ ] `auth.password` is set before exposing Resonant beyond localhost.
+- [ ] Port `3002` is not forwarded directly from your router or VPS firewall.
+- [ ] Cloudflare Access protects any public hostname.
+- [ ] `cors.origins` includes the exact HTTPS origin you use.
+- [ ] `.env`, `.mcp.json`, and provider tokens are not committed.
+- [ ] PM2/system service logs are reviewed after configuration changes.
 
-- [ ] **Set a password** in `resonant.yaml` before exposing to any network
-- [ ] **Use HTTPS** for any access outside your local network (Tailscale encrypts automatically, Cloudflare Tunnel provides HTTPS)
-- [ ] **Don't expose port 3002 directly** to the internet via port forwarding — use a tunnel instead
-- [ ] **Keep Node.js updated** for security patches
-- [ ] **Check PM2 logs** periodically: `pm2 logs resonant`
+## References
+
+- [Tailscale install docs](https://tailscale.com/docs/install)
+- [Cloudflare Tunnel docs](https://developers.cloudflare.com/tunnel/)
+- [Run cloudflared as a service](https://developers.cloudflare.com/tunnel/advanced/local-management/as-a-service/)
+- [Cloudflare Access self-hosted apps](https://developers.cloudflare.com/cloudflare-one/applications/configure-apps/self-hosted-apps/)

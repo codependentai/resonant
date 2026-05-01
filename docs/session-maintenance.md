@@ -15,7 +15,7 @@ This is a known SDK behavior ([anthropics/claude-code#8069](https://github.com/a
 
 ## What Resonant Does About It
 
-### Automatic session tracking (v1.4.0+)
+### Automatic session tracking
 
 Every time the SDK returns a new session ID, Resonant:
 
@@ -38,7 +38,7 @@ This builds a chain: session A → B → C per thread, so you always know which 
 
 ### 1. Run the indexer (one-time backfill)
 
-After updating to v1.4.0+, run the indexer to reconstruct history for existing sessions:
+For older Claude Code sessions, run the indexer to reconstruct history:
 
 ```bash
 # From your Resonant root directory
@@ -127,6 +127,10 @@ db.close();
 ```
 
 These threads will start a fresh session on the next message.
+
+## Runtime Notes
+
+In v2.2.0, the Settings sessions panel is runtime-aware. Claude Code sessions can be listed from local Claude session files. Runtimes without compatible native session files, including the current OpenAI Codex/OpenRouter paths, return an empty list rather than showing unrelated Claude sessions.
 
 ## How It Works Internally
 

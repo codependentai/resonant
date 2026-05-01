@@ -1,6 +1,6 @@
 # Built-in Tools
 
-Resonant ships a set of tools your agent can use via Bash during conversations. These extend beyond Claude Code's native tools (Read, Write, Edit, Bash, Grep, Glob) with conversation-aware capabilities.
+Resonant ships a set of tools your agent can use during conversations. In Claude Code, these are exposed through Bash alongside Claude's native tools. Other runtimes receive tool access according to their adapter capabilities, which are still being normalized.
 
 Tools are accessed through `tools/sc.mjs` — a CLI that wraps Resonant's internal API. The agent's orientation context includes the full command reference on every message, so it knows what's available.
 
@@ -143,7 +143,7 @@ All conditions are AND-joined — every condition must be true for the trigger t
 
 ## Telegram Tools
 
-Available when the user is on Telegram. These appear in the agent's context automatically.
+Available when Telegram is enabled and configured in Settings. These appear in the agent's context automatically for Telegram-capable sessions.
 
 ```bash
 sc tg photo /path/to/image.png "caption"
@@ -218,7 +218,7 @@ Type `/` in the chat input to open the CommandPalette. Commands are auto-discove
 
 ## Internal API
 
-All tools wrap localhost-only REST endpoints. These require no authentication — just the request must come from `127.0.0.1`.
+All tools wrap internal REST endpoints intended for same-machine agent use. Keep them bound to localhost/private access, and do not expose them directly to the public internet.
 
 | Endpoint | Purpose |
 |----------|---------|

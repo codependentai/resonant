@@ -18,7 +18,7 @@ These can go straight to a PR:
 - **Accessibility** — contrast fixes, ARIA improvements, keyboard navigation, screen reader support
 - **Themes** — new CSS theme files in `examples/themes/` (see the [theme docs](examples/themes/README.md))
 - **Platform fixes** — Windows/macOS/Linux edge cases, path handling, PM2 configs
-- **Test coverage** — we don't have tests yet and would love them
+- **Test coverage** — add or improve focused Vitest coverage for backend behavior, config, runtime adapters, and regression fixes
 
 ## What needs an issue first
 
@@ -31,13 +31,13 @@ Open a GitHub Issue to discuss before writing code:
 - **Database schema changes** — migrations affect existing users
 - **Dependency additions** — we keep the dependency tree intentionally small
 
-## Help wanted: Multi-provider support
+## Help wanted: Runtime adapters and provider parity
 
-Resonant currently runs on the Claude Code Agent SDK. We'd love to support other LLM providers (OpenAI, Google Gemini, Ollama, etc.) so people can use Resonant with whichever model they prefer.
+Resonant v2.2.0 has a provider-pluggable runtime layer. Claude Code remains the default full-featured runtime, OpenAI Codex is available experimentally, and OpenRouter settings/key management are present but chat execution is still planned.
 
-This is a significant piece of work and we're actively looking for contributors who use other providers and want to help build adapter support. The coupling is concentrated in two files (`packages/backend/src/services/agent.ts` and `hooks.ts`) — everything else (database, WebSocket protocol, orchestrator, platform integrations) is already provider-agnostic.
+We welcome contributors who want to help harden non-Claude runtimes, expand provider-neutral tool handling, or finish API-based adapters.
 
-The key challenge: Resonant's tool system (MCP servers, file operations, bash execution) is core to the methodology — not optional. Any provider adapter needs to support a full agent loop with tool calling, not just chat completions.
+The key challenge: Resonant's tool system (MCP servers, file operations, bash execution, semantic search, orchestrator tools, Discord/Telegram gateways) is core to the methodology, not optional. Any provider adapter needs an honest capability model and a full enough agent loop for companion use, not just chat completions.
 
 If you're interested, open an issue to discuss your approach before writing code. We're happy to collaborate on the design.
 

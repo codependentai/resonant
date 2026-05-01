@@ -92,7 +92,7 @@ The program serves the companion, not the other way around.
 
 ## Getting Started
 
-1. Copy this file to your Resonant project root (or wherever your `CLAUDE.md` lives)
+1. Copy this file to your Resonant project root
 2. Add a reference in your wake prompts: `"Check program.md for a current target."`
 3. Set your first target — something small and concrete
 4. Let your companion run with it

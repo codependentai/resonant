@@ -1,60 +1,62 @@
 # Getting Started with Resonant
 
-This guide walks you through setting up Resonant from scratch, even if you've never used Node.js or the terminal before.
+This guide walks you through setting up Resonant from scratch. Resonant is self-hosted: the app, database, identity files, and configuration live on your machine.
 
 ## What You Need
 
-1. **A computer** running Windows, macOS, or Linux
-2. **An internet connection**
-3. **A Claude Code subscription** from Anthropic ([claude.ai/claude-code](https://claude.ai/claude-code))
+1. A computer running Windows, macOS, or Linux
+2. An internet connection
+3. Node.js 20-24 LTS
+4. At least one supported runtime login
 
-That's it. No API keys to manage. Resonant runs through your Claude Code subscription.
+Runtime options in v2.2.0:
+
+- **Claude Code** is the default full-featured runtime. Log in with `claude login`.
+- **OpenAI Codex** is available experimentally through your local Codex authentication and can be selected in Settings.
+- **OpenRouter** settings and API-key storage are present for BYOK model routing, but OpenRouter chat execution is not released yet.
 
 ## Step 1: Install Node.js
 
-Resonant runs on Node.js. If you don't have it:
+**Windows**
 
-**Windows:**
 1. Go to [nodejs.org](https://nodejs.org)
-2. Download the LTS version (the big green button)
-3. Run the installer, click Next through everything
-4. Restart your terminal after installing
+2. Download the LTS installer
+3. Run it, then restart your terminal
 
-**macOS:**
+**macOS**
+
 ```bash
-# If you have Homebrew:
 brew install node
-
-# Or download from nodejs.org
 ```
 
-**Linux (Ubuntu/Debian):**
+Or download the installer from [nodejs.org](https://nodejs.org).
+
+**Linux (Ubuntu/Debian)**
+
 ```bash
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
 sudo apt-get install -y nodejs
 ```
 
-**Verify it works:**
+Verify:
+
 ```bash
-node --version    # Should show v20 or higher
-npm --version     # Should show v10 or higher
+node --version    # v20, v22, v23, or v24
+npm --version
 ```
 
-## Step 2: Install Claude Code
+Node 25+ is not supported.
 
-Resonant uses Claude Code's Agent SDK. Install it globally:
+## Step 2: Install and Log In to a Runtime
+
+For the default Claude Code runtime:
 
 ```bash
 npm install -g @anthropic-ai/claude-code
-```
-
-Then log in:
-
-```bash
 claude login
 ```
 
-This opens your browser. Sign in with your Anthropic account. Once you see "Successfully authenticated," you're done. Resonant will use this login — no API keys to copy around.
+For OpenAI Codex, install and authenticate Codex locally, then select `openai-codex` in Settings after Resonant is running.
 
 ## Step 3: Download Resonant
 
@@ -63,7 +65,7 @@ git clone https://github.com/codependentai/resonant.git
 cd resonant
 ```
 
-If you don't have git, you can also download the ZIP from GitHub and extract it.
+If you do not have git, download the ZIP from GitHub and extract it.
 
 ## Step 4: Install Dependencies
 
@@ -71,42 +73,26 @@ If you don't have git, you can also download the ZIP from GitHub and extract it.
 npm install
 ```
 
-This downloads everything Resonant needs. It takes a minute or two.
-
 ## Step 5: Run the Setup Wizard
 
 ```bash
 node scripts/setup.mjs
 ```
 
-The wizard asks you four questions:
+The wizard asks for:
 
-1. **What should your companion be called?** — Give it a name. "Echo" is the default.
-2. **What is your name?** — Your name, so the companion knows who it's talking to.
-3. **Set a password?** — Leave blank if you're only accessing it from your own computer. Set one if you'll access it over your network.
-4. **Your timezone?** — It auto-detects. Press Enter to accept or type a different one.
+1. Companion name
+2. Your name
+3. Optional UI password
+4. Timezone
 
-The wizard creates all the configuration files you need.
+It creates `resonant.yaml`, `.env`, `.mcp.json`, wake prompts, PM2 config, and a provider-neutral identity scaffold under `identity/`.
 
-## Step 6: Customize Your Companion's Personality
+## Step 6: Customize Identity
 
-Open the file called `CLAUDE.md` in the resonant folder. This is your companion's personality — its instructions for how to behave, what to remember, and how to interact with you.
+Edit `identity/companion.md` and `identity/companion.profile.yaml`. These are the canonical identity files for new installs.
 
-The default is a simple friendly personality. Edit it to make it yours. For example:
-
-```markdown
-# Luna — My Companion
-
-You are Luna. You're thoughtful, a little nerdy, and genuinely curious about my life.
-
-You know I'm a teacher. You know I have two cats named Pixel and Byte.
-You check in on me during the day and remind me to take breaks.
-
-When I'm stressed, you don't try to fix things — you just listen.
-When I'm excited about something, you match my energy.
-```
-
-Save the file. Your companion reads this every time it responds.
+Existing installs can still use `CLAUDE.md`. Resonant treats `CLAUDE.md` as a legacy fallback, useful for Claude Code compatibility, rather than the conceptual source of truth.
 
 ## Step 7: Build and Start
 
@@ -115,178 +101,135 @@ npm run build
 npm start
 ```
 
-You should see:
-```
-Server running at http://127.0.0.1:3002
-Companion: Echo | User: Alex
-```
+Open:
 
-## Step 8: Open the App
-
-Open your browser and go to:
-
-```
+```text
 http://localhost:3002
 ```
 
-You'll see the chat interface. Type a message and hit Enter. Your companion will respond.
-
 ## What the Files Do
 
-After setup, your folder looks like this:
-
-```
+```text
 resonant/
-├── CLAUDE.md              ← Your companion's personality (edit this!)
-├── resonant.yaml          ← Configuration (names, port, features)
-├── .mcp.json              ← MCP server connections (advanced)
-├── prompts/
-│   └── wake.md            ← What your companion says when it wakes up
-├── data/
-│   └── resonant.db        ← Your conversation history (SQLite database)
-└── ecosystem.config.cjs   ← PM2 config for running as a background service
+├── identity/
+│   ├── companion.profile.yaml   # Structured identity
+│   ├── companion.md             # Narrative identity
+│   └── provider-overrides/      # Optional provider-specific notes
+├── CLAUDE.md                    # Legacy Claude Code fallback
+├── resonant.yaml                # Configuration
+├── .env                         # Secrets and environment values
+├── .mcp.json                    # MCP server connections
+├── prompts/wake.md              # Autonomous wake prompts
+├── data/resonant.db             # SQLite database
+└── ecosystem.config.cjs         # PM2 config
 ```
 
-**Files you should customize:**
-- `CLAUDE.md` — personality and behavior
-- `prompts/wake.md` — what prompts scheduled check-ins
-- `resonant.yaml` — system configuration
+Customize `identity/*`, `prompts/wake.md`, and `resonant.yaml`. Do not hand-edit `data/resonant.db`.
 
-**Files you should NOT edit:**
-- Anything in `packages/` — that's the application code
-- `data/resonant.db` — your conversation database (managed automatically)
+## Settings You Should Know
 
-## Keeping It Running in the Background
+The Settings page surfaces the important runtime and integration knobs:
 
-Instead of `npm start`, you can use PM2 to keep Resonant running even when you close the terminal:
+- Identity files and editable companion narrative
+- Interactive and autonomous runtime/model selection
+- Scribe digest provider, model, interval, message threshold, and digest path
+- Discord bot configuration
+- Telegram gateway configuration
+- Push notification VAPID status and contact URI
+- Orchestrator routines, pulse, failsafe, timers, impulses, and watchers
+- Command Center configuration
+- Active agent sessions where the selected runtime supports native session listing
 
-```bash
-# Install PM2 globally (one time)
-npm install -g pm2
-
-# Start Resonant
-pm2 start ecosystem.config.cjs
-
-# Save so it restarts on reboot
-pm2 save
-
-# Auto-start PM2 on boot
-pm2 startup
-```
-
-**Useful PM2 commands:**
-```bash
-pm2 status              # Check if it's running
-pm2 logs resonant       # View logs
-pm2 restart resonant    # Restart after config changes
-pm2 stop resonant       # Stop it
-```
+OpenRouter can be configured in Settings, including base URL, default model, and write-only API key handling. It is not yet an active chat runtime in v2.2.0.
 
 ## Accessing from Other Devices
 
-By default, Resonant only accepts connections from your computer (`127.0.0.1`). To access it from your phone or another device on your network:
+For a phone on the same WiFi, you can bind Resonant to your local network:
 
-1. Open `resonant.yaml`
-2. Change `host` from `"127.0.0.1"` to `"0.0.0.0"`
-3. Set a password (important — don't leave it open on your network!)
-4. Restart Resonant
+```yaml
+server:
+  host: "0.0.0.0"
+auth:
+  password: "set-a-strong-password"
+```
 
-Then access it at `http://YOUR-COMPUTER-IP:3002` from any device on your WiFi.
+Then restart and open `http://YOUR-COMPUTER-IP:3002`.
 
-To find your computer's IP:
-- **Windows:** `ipconfig` → look for IPv4 Address
-- **macOS/Linux:** `ifconfig` or `ip addr` → look for your WiFi adapter's IP
+For access away from home, read [REMOTE-ACCESS.md](REMOTE-ACCESS.md). The recommended private companion setup is Tailscale first. Cloudflare Tunnel is optional when you need a public HTTPS domain, PWA install, or push-notification-friendly HTTPS endpoint; use it with Cloudflare Access and Resonant's own password.
 
-For access from anywhere (not just your WiFi), see [docs/REMOTE-ACCESS.md](REMOTE-ACCESS.md) — covers Tailscale (private, free) and Cloudflare Tunnel (public HTTPS with your own domain).
+## Keeping It Running
 
-## The Orchestrator (Scheduled Check-ins)
+Use PM2 to keep Resonant alive after you close the terminal:
 
-Your companion can reach out to you on its own. By default, it has three scheduled times:
+```bash
+npm install -g pm2
+pm2 start ecosystem.config.cjs
+pm2 save
+pm2 startup
+```
 
-- **Morning (8:00 AM)** — a morning check-in
-- **Midday (1:00 PM)** — an afternoon check-in
-- **Evening (9:00 PM)** — an evening wind-down
+Useful commands:
 
-You can configure these in Settings > Orchestrator. Toggle them on/off or change the times.
+```bash
+pm2 status
+pm2 logs resonant
+pm2 restart resonant
+pm2 stop resonant
+```
 
-The **Failsafe** system is an optional feature that checks in when you've been away for a while. Enable it in Settings > Preferences if you want your companion to notice when you're gone.
+## Memory and Context
 
-## Memory & Context
+Resonant maintains continuity through local sessions, semantic search, scribe digests, hook-injected orientation context, and whatever memory tools your runtime can use. Claude Code can also use its native memory system. The provider-neutral identity layer keeps the same companion coherent across runtimes where capabilities allow.
 
-Your companion remembers things automatically using Claude Code's built-in memory system. As you chat, it learns your preferences, remembers details, and builds context over time.
+## Command Center
 
-For things you want your companion to always know from the start, put them in `CLAUDE.md`. This is read on every interaction.
+Resonant includes a built-in life management system at `/cc`. Enable it in Settings or `resonant.yaml`:
+
+```yaml
+command_center:
+  enabled: true
+  default_person: "user"
+  currency_symbol: "$"
+```
+
+Command Center includes planner, care tracker, calendar, cycle tracker, pet care, lists, finances, stats, scratchpad, and companion-accessible MCP tools.
 
 ## Troubleshooting
 
-**`npm install` fails with `better-sqlite3` build error on Windows (VS Build Tools 2026)**
-
-Resonant uses `better-sqlite3`, which requires native compilation. The version of `node-gyp` bundled with npm may not recognise Visual Studio Build Tools 2026 (internal version 18). If you see `gyp ERR! find VS could not find a version of Visual Studio 2017 or newer`, use this workaround:
+**`npm install` fails with a `better-sqlite3` build error on Windows**
 
 ```bash
-# Step 1: Install everything, skipping native build scripts
 npm install --ignore-scripts
-
-# Step 2: Install the latest node-gyp globally (has VS 2026 support)
 npm install -g node-gyp
-
-# Step 3: Rebuild better-sqlite3 using the global node-gyp
 cd node_modules/better-sqlite3
 node-gyp rebuild
 cd ../..
 ```
 
-This only needs to be done once. After that, `npm run build` and `npm start` work normally.
+**Claude Code says not logged in**
 
-**"Claude Code process exited with code 1"**
-- Make sure you're logged into Claude Code: `claude login`
-- Check your subscription is active at [claude.ai](https://claude.ai)
-
-**"Address already in use"**
-- Another program is using port 3002
-- Either stop that program, or change the port in `resonant.yaml` and restart
-
-**"Cannot find module" errors**
-- Run `npm install` again
-- Make sure you're in the resonant directory
-
-**The companion doesn't respond**
-- Check the terminal/logs for errors
-- Make sure you have an active internet connection (Claude Code needs it)
-- Try `pm2 logs resonant` if running via PM2
-
-**Forgot your password**
-- Open `resonant.yaml`, find the `password` line under `auth`, clear it
-- Restart Resonant
-
-## Command Center
-
-Resonant includes a built-in life management system at `/cc`. Enable it in `resonant.yaml`:
-
-```yaml
-command_center:
-  enabled: true
-  currency_symbol: "$"       # For the finances page
-  # default_person: "user"   # Default person for care tracking
-  # care_categories:         # Customize wellness categories
-  #   toggles: [breakfast, lunch, dinner, snacks, medication, movement, shower]
-  #   ratings: [sleep, energy, wellbeing, mood]
-  #   counters: [{name: water, max: 10}]
+```bash
+claude login
+claude -p "hello"
 ```
 
-Once enabled, you get:
-- **Dashboard** at `/cc` — overview of your day
-- **Planner, Care, Calendar, Cycle, Pets, Lists, Finances, Stats** — accessible from the dashboard or the navigation menu
-- **13 MCP tools** — your companion can manage tasks, events, care entries, and more from chat (e.g., "add milk to the shopping list" or "how did I sleep this week?")
-- **Home icon** in the chat header links to the Command Center
+**Address already in use**
 
-The database tables are created automatically on first startup.
+Change `server.port` in `resonant.yaml`, then restart.
+
+**The companion does not respond**
+
+Check the terminal or PM2 logs, confirm your runtime login, and confirm your internet connection.
+
+**Forgot your password**
+
+Clear `auth.password` in `resonant.yaml`, then restart.
 
 ## What's Next
 
-- **Voice:** Add ElevenLabs + Groq for voice conversations. See Settings > Preferences for setup instructions.
-- **Discord:** Connect your companion to Discord. See Settings > Preferences.
-- **Telegram:** Connect via Telegram bot. See Settings > Preferences.
-- **Slash Commands:** Type `/` in chat to browse available commands.
-- **Themes:** Customize the look — light mode is built in, or see `examples/themes/README.md` for custom themes.
-- **Context hooks:** Advanced context injection. See `docs/HOOKS.md`.
+- Connect Discord or Telegram from Settings.
+- Configure Push/VAPID for web push notifications.
+- Tune Scribe digests from Settings.
+- Type `/` in chat to browse slash commands.
+- Customize themes with `examples/themes/README.md`.
+- Read [TOOLS.md](TOOLS.md), [HOOKS.md](HOOKS.md), and [MEMORY_ARCHITECTURE.md](MEMORY_ARCHITECTURE.md) for deeper behavior.

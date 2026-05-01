@@ -349,11 +349,11 @@ Current files:
 
 Current state:
 
-- Model selection is a flat string.
-- Provider is inferred from model name.
-- `ModelSelector.svelte` includes Claude and GPT entries.
-- `PreferencesPanel.svelte` still only lists Claude models and says "Claude model".
-- `/model` accepts any string but does not expose provider capability or validation.
+- Interactive and autonomous providers are explicit config fields.
+- `ModelSelector.svelte` includes provider-aware Claude and GPT entries.
+- Settings exposes runtime/model selection, Codex permission mode, OpenRouter config/key management, identity, Scribe, Push/VAPID, Discord, and Telegram.
+- Provider/model catalogs are still partly hardcoded and should move toward backend-driven capability metadata.
+- `/model` accepts provider/model updates but still needs stronger provider capability validation.
 
 Normalization target:
 
@@ -477,10 +477,11 @@ Current files:
 
 Current state:
 
-- Public docs still frame Resonant as built on Claude Code Agent SDK.
-- Setup assumes Claude Code subscription only.
-- Cloud deployment docs are Claude-token-specific.
-- `docs/HOOKS.md` treats hooks as the system concept, not one provider adapter.
+- Public docs now frame Resonant as provider-pluggable with Claude Code as the default full-featured runtime.
+- Setup creates provider-neutral identity scaffolding and current v2.2.0 config keys.
+- Remote access docs now treat Tailscale as the private companion baseline and Cloudflare Tunnel as an optional HTTPS/public-domain layer.
+- Cloud deployment docs now separate Tailscale private/admin access from optional Cloudflare Tunnel.
+- `docs/HOOKS.md` now distinguishes provider-neutral context construction from provider-specific hook adapters.
 
 Normalization target:
 

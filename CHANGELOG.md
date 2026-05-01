@@ -2,6 +2,27 @@
 
 All notable changes to Resonant will be documented in this file.
 
+## [2.2.0] - 2026-05-01
+
+### Runtime and Configuration
+
+- **Provider-pluggable runtime settings** — Claude Code remains the default full-featured runtime; OpenAI Codex is available experimentally; OpenRouter config/key management is surfaced for BYOK planning, with chat execution still pending.
+- **Provider-neutral identity** — canonical identity/profile files can render consistently across runtimes, with legacy `CLAUDE.md` fallback preserved.
+- **Scribe settings** — digest provider, model, interval, message threshold, and digest path are configurable from Settings.
+
+### Integrations
+
+- **Push/VAPID settings** — VAPID contact/env names and setup status are visible in Settings.
+- **Telegram gateway settings** — Telegram configuration now has a dedicated Settings surface alongside Discord.
+- **Runtime-aware sessions** — session listing now respects the configured runtime; providers without native session files return an empty list instead of leaking local Claude sessions.
+
+### Documentation
+
+- Updated installation, runtime, remote-access, and deployment docs for v2.2.0.
+- Made Tailscale the private companion baseline and documented Cloudflare Tunnel as an optional HTTPS/public-domain layer requiring Access plus Resonant auth.
+
+---
+
 ## [2.1.2] - 2026-04-08
 
 ### Bug Fixes

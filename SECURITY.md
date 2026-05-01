@@ -4,7 +4,8 @@
 
 | Version | Supported |
 |---------|-----------|
-| v1.x    | Yes       |
+| v2.2.x  | Yes       |
+| < v2.2  | Best effort |
 
 ## Reporting a vulnerability
 
@@ -24,12 +25,13 @@ Resonant is self-hosted software that runs on your machine:
 - **No cloud backend** — your data stays local (SQLite + filesystem)
 - **No telemetry** — nothing phones home
 - **Auth is optional** — password protection is available but not required for local-only use
-- **Agent SDK queries** go through your Claude Code subscription — we never see them
+- **Runtime queries** go through the runtime you configure locally. Claude Code uses your Claude Code login, OpenAI Codex uses local Codex auth, and API/BYOK providers use your own keys where supported. We never see them
 - **MCP servers** are user-configured — we don't bundle or recommend specific ones
 
 ### What to watch for
 
-- **Exposed ports** — if you expose Resonant to the internet, set a password and use HTTPS
-- **CLAUDE.md contents** — this file is sent to the AI on every query. Don't put secrets in it
-- **`.env` and `resonant.yaml`** — contain credentials. Both are gitignored by default
+- **Exposed ports** — do not port-forward `3002` directly. Use Tailscale for private access. If you use Cloudflare Tunnel for a public hostname, put Cloudflare Access in front of it and keep Resonant's own password enabled
+- **Identity files and `CLAUDE.md` contents** — these are sent to the runtime as identity/context. Don't put secrets in them
+- **`.env`, `.mcp.json`, and `resonant.yaml`** — may contain credentials or endpoints. They are gitignored by default
 - **Discord/Telegram tokens** — treat these as secrets. Never commit them
+- **VAPID keys** — required for web push, but still credentials. Keep them in `.env` or secure environment storage

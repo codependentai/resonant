@@ -17,7 +17,7 @@ agent:
   cwd: "."
   claude_md_path: "./CLAUDE.md"
   mcp_json_path: "./.mcp.json"
-  model: "claude-sonnet-4-6"
+  model: "gpt-5.4"
   model_autonomous: "gpt-5.4-mini"
   openai_codex_permission: "danger-full-access"
   claude_code:
@@ -46,6 +46,11 @@ hooks:
   safe_write_prefixes: []
 voice:
   enabled: false
+push:
+  enabled: true
+  vapid_public_key_env: "VAPID_PUBLIC_KEY"
+  vapid_private_key_env: "VAPID_PRIVATE_KEY"
+  vapid_contact: "mailto:admin@example.com"
 discord:
   enabled: false
 telegram:
@@ -57,6 +62,7 @@ integrations:
     mcp_url: ""
 command_center:
   enabled: true
+  default_person: "user"
   currency_symbol: "$"
 cors:
   origins: []

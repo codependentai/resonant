@@ -4,7 +4,7 @@ Resonant's hook system is what makes your companion context-aware. On every mess
 
 ## How It Works
 
-When you send a message, before it reaches Claude:
+When you send a message, before it reaches the selected runtime:
 
 1. **Orientation context** is built (time, thread info, session state)
 2. **Life API data** is fetched (if configured)
@@ -27,7 +27,9 @@ Your actual message here
 
 ## Adding Your Own Context
 
-Your companion's personality and instructions live in `CLAUDE.md`. For long-term memory, Claude Code's native `memory.md` system handles it automatically — your companion learns and remembers across sessions.
+Your companion identity lives in the provider-neutral identity layer: `identity/companion.profile.yaml`, `identity/companion.md`, and optional files under `identity/provider-overrides/`. Existing installs can keep using `CLAUDE.md` as a legacy fallback.
+
+For long-term memory, use the memory available to your selected runtime and any MCP memory server you configure. Claude Code can use its native `memory.md` system; Resonant also supplies local sessions, semantic search, scribe digests, and hook-injected orientation context.
 
 ### URL-Based Context Sources
 
@@ -57,7 +59,7 @@ For structured memory that your companion can read AND write, use MCP servers. C
 }
 ```
 
-The companion can call MCP tools during conversation to store and retrieve memories. This is optional — Resonant works without it, relying on Claude Code's native `memory.md` system.
+The companion can call MCP tools during conversation to store and retrieve memories. This is optional; Resonant works without an MCP memory server, but a cold memory backend is recommended for serious long-running use.
 
 ## Built-In Hook Behaviors
 
@@ -79,7 +81,7 @@ These fire automatically on every query:
 - **Reaction tracking** — recent emoji reactions are included so the companion sees your responses
 - **Session handoff** — notes from the previous session are carried forward
 - **Trigger awareness** — active watchers and impulses are listed
-- **Skill discovery** — scans `.claude/skills/` for available skills
+- **Skill discovery** — scans configured skill directories and summarizes available skills
 
 ## Configuring Safe Write Prefixes
 
@@ -141,7 +143,7 @@ The companion can then respond to HOW something was said, not just what was said
 
 ## Building Custom Hooks
 
-The hook system is extensible via the Agent SDK. The key file is `packages/backend/src/services/hooks.ts`. The `createHooks()` function returns hook callbacks that the SDK calls at each stage:
+The hook system has two layers: provider-neutral context construction and provider-specific hook callbacks. The key files are `packages/backend/src/runtime-lifecycle/context-builder.ts` and `packages/backend/src/services/hooks.ts`. The Claude Code adapter maps Resonant lifecycle behavior onto Claude SDK hooks:
 
 - `preToolUse` — runs before every tool call (can modify, block, or allow)
 - `postToolUse` — runs after every tool call (for logging, side effects)
@@ -150,4 +152,4 @@ The hook system is extensible via the Agent SDK. The key file is `packages/backe
 - `notification` — runs on SDK notifications
 - `stop` — runs when generation stops
 
-To add a custom context source, edit the `buildOrientationContext()` function in hooks.ts and add your fetch/read logic to the `parts` array. Everything in `parts` gets joined with newlines and prepended to the user's message.
+To add a custom context source, extend `buildOrientationContext()` in `runtime-lifecycle/context-builder.ts` and add your fetch/read logic to the context parts. Everything in those parts gets joined and prepended to the user's message through the active runtime adapter.

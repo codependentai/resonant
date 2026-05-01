@@ -27,7 +27,7 @@ Mem0's benchmarks against full-context approaches show why this matters: 26% acc
 
 ## Resonant's Implementation
 
-Resonant builds context via hooks in [`packages/backend/src/services/hooks.ts`](../packages/backend/src/services/hooks.ts). The work is done in a single exported function and three SDK hook callbacks.
+Resonant builds context through the provider-neutral runtime lifecycle in [`packages/backend/src/runtime-lifecycle/context-builder.ts`](../packages/backend/src/runtime-lifecycle/context-builder.ts), with Claude-specific SDK hook mapping in [`packages/backend/src/services/hooks.ts`](../packages/backend/src/services/hooks.ts).
 
 ### `buildOrientationContext` — the main injection point
 
@@ -42,7 +42,7 @@ This is the function that runs before every query. It assembles the context bloc
 - **User device type** — desktop, mobile, voice
 - **Life API status** — if a `life_api_url` is configured, the response is fetched in parallel and injected
 - **Mood history** — if Command Center is enabled, recent mood readings are included
-- **Available skills** — short summaries scanned from `.claude/skills/`
+- **Available skills** — short summaries scanned from configured skill directories
 - **Chat tools reference** — the full `sc.mjs` CLI surface (so the agent doesn't have to remember it)
 - **Recent reactions** — from the last 20 messages, so the companion sees how the user reacted to its previous replies
 - **Platform-specific context** — Discord channel history, Telegram thread state, etc.
@@ -73,7 +73,7 @@ Memory in Resonant lives in three tiers, distinguished by access cost and persis
 
 | Tier | What | Where | Access cost |
 |------|------|-------|-------------|
-| **Hot** | Always in context | `CLAUDE.md`, system prompt | 0 — already loaded |
+| **Hot** | Always in context | identity profile, companion narrative, provider overrides, legacy `CLAUDE.md` fallback, system prompt | 0 — already loaded |
 | **Warm** | Auto-injected per query | `buildOrientationContext` output | 100–500ms — built per query |
 | **Cold** | On-demand | External MCP memory backend | 500–2000ms — agent calls a tool |
 
@@ -81,7 +81,7 @@ Memory in Resonant lives in three tiers, distinguished by access cost and persis
 
 **What's warm:** Everything `buildOrientationContext` injects — time, presence, recent reactions, emotional markers, life status, skill summaries, the chat tools reference. Reloaded fresh on every query, including after compaction.
 
-**What's cold:** Long-term memory — observations, journals, threads from months ago, semantically relevant fragments from old conversations. Resonant doesn't ship a cold tier itself. You bring your own: Claude Code's native `memory.md` system, an MCP memory server, a Postgres-backed embedding store, whatever fits. The agent decides when to reach for it; the warm tier makes sure it knows enough to decide intelligently.
+**What's cold:** Long-term memory — observations, journals, threads from months ago, semantically relevant fragments from old conversations. Resonant ships local sessions, semantic search, and scribe digests, but the deeper cold tier is deliberately pluggable: Claude Code's native `memory.md` system, an MCP memory server, a Postgres-backed embedding store, or whatever fits. The agent decides when to reach for it; the warm tier makes sure it knows enough to decide intelligently.
 
 ## First-person vs. third-person memory
 
@@ -117,7 +117,7 @@ The same pattern works with any MCP that exposes a search tool. Replace `mind_se
 The current implementation handles the warm tier well. The cold tier is delegated to whatever backend you wire in. There are a few directions worth exploring as the project matures:
 
 ### Direct UserPromptSubmit hook with parallel retrieval
-The Agent SDK supports a `UserPromptSubmit` hook that fires before the model sees the prompt. Resonant currently doesn't use it directly — the warm-tier injection happens via `buildOrientationContext` called from the agent service. A direct hook would let the system query *multiple* memory sources in parallel (semantic similarity + emotional resonance + recent threads + random "spark" picks for associative surprise) and inject a single ranked block. Mem0's research shows this kind of multi-path retrieval significantly outperforms single-path.
+Provider runtimes expose different pre-prompt lifecycle hooks. Resonant currently centralizes warm-tier injection in `buildOrientationContext` before handing the prompt to the adapter. A future retrieval layer could query *multiple* memory sources in parallel (semantic similarity + emotional resonance + recent threads + random "spark" picks for associative surprise) and inject a single ranked block. Mem0's research shows this kind of multi-path retrieval significantly outperforms single-path.
 
 ### Think engine — parameterized retrieval pipeline
 Generalize the memory retrieval into a single parameterized engine: same code path, different scoring weights for different situations. Real-time retrieval (high relevance threshold, low latency) and offline consolidation (lower threshold, surprising connections) become two configurations of the same engine, not separate code paths.

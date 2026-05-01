@@ -7,7 +7,7 @@ Wake prompts are what your companion receives when the orchestrator fires a sche
 The orchestrator runs on a cron schedule. When a wake fires:
 
 1. The companion receives the prompt below for that wake type
-2. It reads your `CLAUDE.md` (system prompt) for identity and context
+2. It receives your provider-neutral identity context, with `CLAUDE.md` used as a legacy fallback when needed
 3. It decides what to do — reach out to you, work on something, reflect
 
 The companion has full agency in how it responds. The wake prompt sets the tone, not a script.
@@ -24,7 +24,7 @@ The companion has full agency in how it responds. The wake prompt sets the tone,
 **Don't:**
 - Write a to-do list. The wake isn't a task queue.
 - Force interaction. Sometimes the companion should do its own thing.
-- Over-explain. The companion already has its system prompt for identity.
+- Over-explain. The companion already has its identity context.
 
 ## The `{user_name}` Placeholder
 

@@ -2,7 +2,7 @@
   "name": "resonant",
   "version": "2.2.0",
   "private": true,
-  "description": "Relational AI companion framework built on Claude Code Agent SDK",
+  "description": "Self-hosted relational AI companion framework with provider-pluggable runtimes",
   "workspaces": ["packages/shared", "packages/backend", "packages/frontend"],
   "scripts": {
     "setup": "node scripts/setup.mjs",

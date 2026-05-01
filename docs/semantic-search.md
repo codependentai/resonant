@@ -43,7 +43,8 @@ New messages are embedded automatically. To index your existing conversation his
 
 ```bash
 # From your Resonant root directory (where resonant.yaml is)
-node tools/sc.mjs backfill 100    # process 100 messages at a time
+node tools/sc.mjs backfill start 100 3000  # background backfill, 100 messages/batch, 3s interval
+node tools/sc.mjs backfill status          # check progress
 ```
 
 Run this multiple times or with larger batch sizes to index your full history. Your companion can also do this during autonomous time.
@@ -70,7 +71,7 @@ node tools/sc.mjs search "query" --after 2026-03-01 --before 2026-03-15
 node tools/sc.mjs search "that deadline" --role user --after 2026-03-01 --limit 20
 
 # Check indexing progress
-node tools/sc.mjs backfill 0    # processes 0, but shows indexed/total counts
+node tools/sc.mjs backfill status
 ```
 
 ### Internal API (for programmatic access)
@@ -111,6 +112,6 @@ Search results include session context when available — which session the mess
 
 **Model download fails**: Check your internet connection. The model downloads from Hugging Face Hub. Set `HF_HOME` env var to change the cache location.
 
-**Search returns no results**: Run `node tools/sc.mjs backfill` to index existing messages. New messages are indexed automatically.
+**Search returns no results**: Run `node tools/sc.mjs backfill start` to index existing messages. New messages are indexed automatically.
 
 **Slow first search**: The first search loads the model into memory (~5-10 seconds). Subsequent searches are fast (<100ms for query embedding + similarity computation).

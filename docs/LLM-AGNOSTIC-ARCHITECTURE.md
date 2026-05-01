@@ -1,12 +1,12 @@
-# LLM-Agnostic Architecture Plan
+# Provider-Pluggable Runtime Architecture
 
-Resonant currently uses the Anthropic Claude Agent SDK as its only agent runtime. That gives Resonant more than model access: it provides sessions, streaming, MCP server integration, hooks, Claude Code tools, file checkpointing, rewind, compaction events, local skills, and permission behavior.
+Resonant v2.2.0 has a provider-pluggable runtime layer. Claude Code remains the default full-featured runtime because it provides sessions, streaming, MCP server integration, hooks, Claude Code tools, file checkpointing, rewind, compaction events, local skills, and permission behavior.
 
-Making Resonant LLM-agnostic should preserve those capabilities where possible while allowing other model providers to run the same companion shell.
+The goal is runtime portability without flattening the companion into plain chat. Other runtimes can run the same Resonant companion shell only where their capability contract is honest and explicit.
 
 For the repo-wide normalization checklist, see [`PROVIDER-NEUTRAL-NORMALIZATION.md`](PROVIDER-NEUTRAL-NORMALIZATION.md). That document expands this plan beyond the main chat runtime to cover hooks/lifecycle events, tools, MCP, skills, sessions, background agents, settings, frontend capability labels, and docs. Research notes from primary framework/protocol docs are in [`PROVIDER-NEUTRAL-RESEARCH-NOTES.md`](PROVIDER-NEUTRAL-RESEARCH-NOTES.md).
 
-## Implementation Status - 2026-04-26
+## Implementation Status - v2.2.0 / 2026-05-01
 
 The first architecture slice has landed. Resonant is no longer shaped as one monolithic Claude/Codex branch in `AgentService`; it now has a runtime provider layer and explicit provider selection.
 
@@ -19,15 +19,15 @@ Shipped:
 - `packages/backend/src/runtime/providers/openrouter-provider.ts` exists as a planned/stub adapter.
 - `AgentService` now resolves provider/model selection and consumes normalized runtime events.
 - `digest.ts` routes background text summarization through `runtime/text-query.ts` instead of importing the Claude SDK directly.
-- Preferences exposes interactive/autonomous provider selection, Codex permission, OpenRouter config/key management, and identity editing.
+- Settings exposes interactive/autonomous provider selection, Codex permission, OpenRouter config/key management, identity editing, Scribe provider/model/path settings, Push/VAPID settings, Discord, and Telegram gateway configuration.
 
 Still partial:
 
-- Claude hook code still lives in `services/hooks.ts` and needs to become a Claude adapter over neutral lifecycle helpers.
+- Claude hook code still lives partly in `services/hooks.ts`, but orientation context is now shared through neutral lifecycle helpers.
 - OpenAI Codex works as an experimental subscription runtime but does not have native sessions, MCP, rewind, or broad registry-backed tools.
 - OpenRouter has settings and key management but no streaming API execution yet.
 - Provider/model catalogs are still partly hardcoded in the frontend.
-- Non-Claude continuity still needs a Resonant-owned context assembler from DB history, digests, and semantic search.
+- Non-Claude continuity now has the beginning of a Resonant-owned context path through identity rendering, local sessions, digests, and semantic search, but provider parity is not complete.
 
 ## Goal
 
@@ -255,49 +255,33 @@ The UI already has graceful places to degrade:
 
 ## Configuration Shape
 
-Add provider selection to `resonant.yaml`:
+Current provider selection in `resonant.yaml`:
 
 ```yaml
 agent:
   provider: "claude-code"
+  autonomous_provider: "claude-code"
   model: "claude-sonnet-4-6"
   model_autonomous: "claude-sonnet-4-6"
   cwd: "."
   claude_md_path: "./CLAUDE.md"
   mcp_json_path: "./.mcp.json"
-
-providers:
   claude_code:
-    enabled: true
+    mcp_json_path: "./.mcp.json"
 
   openai_codex:
-    enabled: false
-    # Login/subscription-backed through the official Codex CLI/SDK/runtime path.
-    # Do not require OPENAI_API_KEY for this provider.
+    permission: "workspace-write"
 
   openrouter:
-    enabled: false
     base_url: "https://openrouter.ai/api/v1"
     api_key_env: "OPENROUTER_API_KEY"
-    model: "anthropic/claude-sonnet-4.5"
-    autonomous_model: "openai/gpt-4.1-mini"
+    default_model: ""
 
-  openai_api:
-    enabled: false
-    api_key_env: "OPENAI_API_KEY"
-    model: "gpt-5.1"
-    autonomous_model: "gpt-5.1-mini"
-
-  openai_compatible:
-    enabled: false
-    base_url: "http://localhost:1234/v1"
-    api_key_env: "OPENAI_COMPATIBLE_API_KEY"
-    model: "local-model"
-
-  ollama:
-    enabled: false
-    base_url: "http://localhost:11434/v1"
-    model: "qwen2.5-coder:14b"
+scribe:
+  enabled: true
+  provider: "claude-code"
+  model: "claude-sonnet-4-6"
+  digest_path: "./data/digests"
 ```
 
 For backward compatibility:
@@ -311,13 +295,13 @@ For backward compatibility:
 
 Provider-pluggable runtimes also require provider-neutral companion identity.
 
-Current Resonant uses `CLAUDE.md` as the effective canonical identity file. That works for Claude Code but does not generalize cleanly:
+Resonant now uses provider-neutral identity files as the canonical identity layer:
 
-- Claude Code reads `CLAUDE.md`.
-- Codex-style runtimes may use `AGENTS.md`.
-- OpenRouter/API providers only receive the prompt Resonant sends.
+- `identity/companion.profile.yaml`
+- `identity/companion.md`
+- `identity/provider-overrides/*`
 
-Before adding OpenAI Codex or OpenRouter runtime support, add a canonical identity layer that can render provider-specific instructions:
+Legacy `CLAUDE.md` remains supported as a fallback for existing installs and Claude Code compatibility. Provider-specific render notes let Claude Code, OpenAI Codex, OpenRouter, and future API providers receive the same companion identity with runtime-appropriate limits.
 
 ```text
 identity/
@@ -337,9 +321,9 @@ Backward compatibility rule:
 
 See `docs/IDENTITY-PERSONALIZATION-ARCHITECTURE.md`.
 
-## Implementation Phases
+## Implementation Phases and Remaining Work
 
-### Phase 1 — Extract Provider-Neutral Core And Identity
+### Phase 1 — Extract Provider-Neutral Core And Identity (shipped)
 
 No behavior change.
 
@@ -352,7 +336,7 @@ No behavior change.
 
 Success criterion: `npm run build`, existing tests pass, Claude behavior unchanged.
 
-### Phase 2 — Split Context From Claude Hooks And Rendered Identity
+### Phase 2 — Split Context From Claude Hooks And Rendered Identity (mostly shipped)
 
 Move provider-neutral context building into `runtime-lifecycle/context-builder.ts`:
 
@@ -367,7 +351,7 @@ Keep Claude-specific hook wrappers in `hooks.ts`, but make them call provider-ne
 
 Success criterion: a non-Claude provider can build the same enriched prompt and same companion identity even before it supports native hooks.
 
-### Phase 3 — Add OpenAI Codex Subscription Runtime
+### Phase 3 — Add OpenAI Codex Subscription Runtime (experimental)
 
 Add a provider using the official OpenAI Codex CLI/SDK/runtime path, preserving ChatGPT Plus/Pro subscription access where supported.
 
@@ -471,43 +455,37 @@ This makes Resonant stronger even for Claude, because continuity becomes product
 
 | Capability | Claude Code | OpenAI Codex | OpenRouter BYOK | API Providers + Tools |
 |---|---:|---:|---:|
-| Streaming chat | yes | likely | yes | yes |
+| Streaming chat | yes | experimental | planned | planned |
 | Subscription/login auth | yes | yes | no | provider-dependent |
 | API key / BYOK | no | no | yes | yes |
 | Companion orientation context | yes | yes | yes | yes |
 | Resonant DB/thread persistence | yes | yes | yes | yes |
-| Autonomous wakes | yes | yes | yes | yes |
+| Autonomous wakes | yes | experimental | blocked until runtime execution | planned |
 | Command Center context | yes | yes | yes | yes |
 | Thinking stream | yes | provider-dependent | provider-dependent | provider-dependent |
 | Claude Code tools | yes | no | no | no |
 | Local skills plugin | yes | prompt-only | prompt-only | prompt-only |
-| MCP tools | yes | unknown/adapter-needed | no initially | yes, if MCP bridge added |
-| MCP status/toggle | yes | unknown/adapter-needed | no | partial |
+| MCP tools | yes | registry/adapter-limited | no initially | yes, if MCP bridge added |
+| MCP status/toggle | yes | unsupported today | no | partial |
 | File checkpointing/rewind | yes | provider-dependent | no | no unless separately implemented |
 | Hook lifecycle | yes | emulated | emulated | emulated |
 | Compaction events | yes | provider-dependent | no | Resonant-owned summaries |
 
 ## Product Language
 
-Do not say "Resonant no longer depends on Claude" until Phase 4 or later. Better:
+Current public language:
 
-> Resonant is moving toward provider-pluggable agent runtimes. Claude Code remains the default full-featured backend, OpenAI Codex is the next subscription-backed runtime target, and OpenRouter BYOK will provide broad model choice.
+> Resonant has provider-pluggable companion runtimes. Claude Code remains the default full-featured runtime, OpenAI Codex is experimental, and OpenRouter settings/key management are available for BYOK planning while chat execution is still pending.
 
 For install/onboarding language:
 
-> The default Resonant experience still runs through your Claude Code subscription. Advanced users can optionally configure additional providers.
+> The default Resonant experience runs through your local Claude Code login. Advanced users can optionally select OpenAI Codex experimentally or configure OpenRouter settings for future BYOK model routing.
 
 For OpenAI language:
 
 > Resonant separates OpenAI Codex subscription-runtime support from OpenAI API-key support. ChatGPT Plus/Pro can be used where the official Codex runtime supports it; OpenAI API usage remains a separate Platform-billed mode.
 
-Once Phase 3 ships:
-
-> Resonant supports two subscription-backed runtimes: Claude Code and OpenAI Codex. Claude Code provides the full agentic feature set today; OpenAI Codex support brings GPT subscription-backed access into the same companion shell, with capabilities labeled clearly.
-
-Once Phase 4 ships:
-
-> Resonant supports Claude Code, OpenAI Codex, and OpenRouter BYOK runtimes. Users can choose subscription-backed runtimes or bring their own API key for broad model choice. Capabilities vary by provider.
+Do not claim OpenRouter chat support until the adapter can execute streamed chat with the same identity/context contract and clearly labeled tool limits.
 
 ## Risks
 
