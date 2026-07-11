@@ -119,6 +119,6 @@ describe('identity rendering', () => {
     }));
 
     expect(identity.mode).toBe('legacy-claude');
-    expect(renderIdentityPrompt(identity)).toContain('# Companion System Prompt');
+    expect(renderIdentityPrompt(identity)).toContain('# Personal AI System Prompt');
   });
 });
